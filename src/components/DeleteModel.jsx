@@ -7,9 +7,9 @@ import {
     AlertDialogDescription,
     AlertDialogCancel,
     AlertDialogAction,
-} from "@/components/UI/alert-dialog"
+} from "@/components/ui/alert-dialog"
 
-import { Checkbox } from "@/components/UI/checkbox"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Trash2 } from "lucide-react"
 import { useState, useEffect } from "react"
 
