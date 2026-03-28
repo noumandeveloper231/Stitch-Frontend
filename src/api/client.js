@@ -1,14 +1,18 @@
-/** Ensures absolute URL: values without http(s):// are treated as relative paths on the current origin. */
-function normalizeApiBaseUrl(raw) {
-  const fallback = "http://localhost:5000/api";
-  if (raw == null || String(raw).trim() === "") return fallback;
-  let u = String(raw).trim();
-  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
-  return u.replace(/\/+$/, "");
+import { doneProgress, startProgress } from "@/lib/progress";
+
+/** Ensures fetch() gets an absolute URL (browser-relative if scheme is missing). */
+function normalizeApiBase(raw) {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return "http://localhost:5000/api";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, "") || trimmed;
+  const host = trimmed.replace(/^\/+/, "");
+  const isLocal =
+    /^localhost\b/i.test(host) || /^127\.\d+\.\d+\.\d+\b/.test(host);
+  const scheme = isLocal ? "http://" : "https://";
+  return `${scheme}${host}`.replace(/\/+$/, "");
 }
 
-const baseURL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
-import { doneProgress, startProgress } from "@/lib/progress";
+const baseURL = normalizeApiBase(import.meta.env.VITE_API_URL);
 
 const DEFAULT_HEADERS = { "Content-Type": "application/json" };
 
