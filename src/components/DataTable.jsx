@@ -51,7 +51,7 @@ export function DataTable({
   getRowId: getRowIdProp,
   containerClassName,
   getRowProps,
-  /** When false, table container grows with content (no fixed 500px height). Default true. */
+  /** When false, table containentent (no fixed 500px height). Default true. */
   fixedHeight = true,
   /** When false, header cells are not wrapped in context menu (e.g. for import/input tables). Default true. */
   enableHeaderContextMenu = true,
