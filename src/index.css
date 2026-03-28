@@ -13,7 +13,7 @@
 
 :root {
   --sf-bg: #f4f4f5;
-  --sf-accent: #4f46e5;
+  --sf-accent: #000000;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -143,4 +143,24 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/* NProgress customization */
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  background: var(--sf-accent) !important;
+  height: 4px !important;
+  top: 0 !important;
+  z-index: 9999 !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px var(--sf-accent), 0 0 5px var(--sf-accent) !important;
+}
+
+#nprogress .spinner {
+  display: none !important;
 }

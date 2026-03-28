@@ -1,4 +1,11 @@
-import Button from "./ui/Button";
+import { useState } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 /**
  * Shared from/to date controls with Apply and Reset.
@@ -13,43 +20,56 @@ export default function DateRangeFilter({
   onReset,
   children,
   className = "",
+  label,
 }) {
+  const [dateRangeOpen, setDateRangeOpen] = useState(false);
+
   return (
     <div
-      className={`rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${className}`}
+      className={cn(
+        className
+      )}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {children}
-        <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">
-            From
-          </label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => onFromChange(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm shadow-sm transition focus:border-[var(--sf-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-accent)]/20"
-          />
+        <div className="space-y-1.5 sm:col-span-2">
+          {label ? (
+            <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+              {label}
+            </Label>
+          ) : null}
+          <Popover open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={
+                  "h-10   justify-start text-left shadow-sm font-normal"
+                }
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {from
+                  ? to
+                    ? `${format(new Date(`${from}T00:00:00`), "LLL dd, y")} - ${format(new Date(`${to}T00:00:00`), "LLL dd, y")}`
+                    : format(new Date(`${from}T00:00:00`), "LLL dd, y")
+                  : "Pick a date range"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                numberOfMonths={2}
+                selected={{
+                  from: from ? new Date(`${from}T00:00:00`) : undefined,
+                  to: to ? new Date(`${to}T00:00:00`) : undefined,
+                }}
+                onSelect={(range) => {
+                  onFromChange(range?.from ? format(range.from, "yyyy-MM-dd") : "");
+                  onToChange(range?.to ? format(range.to, "yyyy-MM-dd") : "");
+                }}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-zinc-500">
-            To
-          </label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => onToChange(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm shadow-sm transition focus:border-[var(--sf-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-accent)]/20"
-          />
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button type="button" onClick={onApply}>
-          Apply
-        </Button>
-        <Button type="button" variant="secondary" onClick={onReset}>
-          Reset
-        </Button>
       </div>
     </div>
   );

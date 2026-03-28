@@ -1,66 +1,103 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { ChevronDown, LayoutDashboard, Ruler, ShoppingBag, Users } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
-  LayoutDashboard,
-  Users,
-  ShoppingBag,
-  PlusCircle,
-  Ruler,
-  PanelLeftClose,
-  PanelLeft,
-} from "lucide-react";
+  Sidebar as UISidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
-const links = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+const rootItems = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/customers", label: "Customers", icon: Users },
-  { to: "/orders", label: "Orders", icon: ShoppingBag },
-  { to: "/orders/new", label: "New order", icon: PlusCircle },
   { to: "/measurements", label: "Measurements", icon: Ruler },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
+const orderItems = [
+  { to: "/orders", label: "All orders" },
+  { to: "/orders/new", label: "Create order" },
+];
+
+export default function Sidebar() {
+  const { pathname } = useLocation();
+  const ordersOpen = pathname.startsWith("/orders");
+  const isOrdersActive = pathname === "/orders" || pathname === "/orders/new";
+
   return (
-    <aside
-      className={`fixed left-0 top-0 z-40 flex h-full flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 ease-out md:relative ${collapsed ? "w-[72px]" : "w-56"}`}
+    <UISidebar
+      collapsible="icon"
+      className="border-r border-zinc-200/80 bg-white shadow-sm"
+      style={{ "--sidebar-width": "15rem" }}
     >
-      <div className="flex h-14 items-center justify-between gap-2 border-b border-zinc-100 px-3">
-        {!collapsed && (
-          <span className="truncate text-sm font-semibold tracking-tight text-zinc-900">
-            Stitch
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="ml-auto rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <PanelLeft className="h-5 w-5" />
-          ) : (
-            <PanelLeftClose className="h-5 w-5" />
-          )}
-        </button>
-      </div>
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            title={collapsed ? label : undefined}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-              } ${collapsed ? "justify-center px-2" : ""}`
-            }
-          >
-            <Icon className="h-5 w-5 shrink-0 opacity-90" />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+      <SidebarHeader className="px-3 py-3">
+        <p className="truncate text-base font-semibold tracking-tight text-zinc-900">StitchFlow</p>
+      </SidebarHeader>
+      <SidebarContent className="px-1.5 pb-3">
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-2 text-[11px] uppercase tracking-wide text-zinc-500">
+            Main
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {rootItems.map(({ to, label, icon: Icon, end }) => (
+              <SidebarMenuItem key={to}>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={label}
+                  isActive={end ? pathname === to : pathname.startsWith(to)}
+                  className={cn(
+                    "h-9 rounded-lg font-medium",
+                    (end ? pathname === to : pathname.startsWith(to)) && "bg-zinc-900 text-white",
+                  )}
+                >
+                  <NavLink to={to} end={end}>
+                    <Icon className="h-4 w-4" />
+                    <span>{label}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+
+            <SidebarMenuItem>
+              <Collapsible defaultOpen={ordersOpen} className="group/collapsible">
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip="Orders"
+                    isActive={isOrdersActive}
+                    className={cn(
+                      "h-9 rounded-lg font-medium",
+                      isOrdersActive && "bg-zinc-900 text-white",
+                    )}
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>Orders</span>
+                    <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {orderItems.map((item) => (
+                      <SidebarMenuSubItem key={item.to}>
+                        <SidebarMenuSubButton asChild isActive={pathname === item.to} className="rounded-md">
+                          <NavLink to={item.to}>{item.label}</NavLink>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+      </SidebarContent>
+    </UISidebar>
   );
 }

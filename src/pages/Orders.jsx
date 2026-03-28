@@ -1,17 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { SearchIcon } from "lucide-react";
 import { api, downloadOrderInvoicePdf } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import DataTable from "../components/ui/DataTable";
-import Button from "../components/ui/Button";
-import Select from "../components/ui/Select";
-import Input from "../components/ui/Input";
-import Badge from "../components/ui/Badge";
-import Modal, { ModalActions } from "../components/ui/Modal";
-import DateRangeFilter from "../components/DateRangeFilter";
+import { DataTable } from "@/components/DataTable";
+import { Button } from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import Badge from "@/components/ui/badge";
+import Modal, { ModalActions } from "@/components/ui/modal";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ORDER_STATUSES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
+import { Pencil, Trash2, FileCodeIcon, PlusIcon } from "lucide-react";
+import { DeleteModel } from "@/components/DeleteModel";
+import PageHeader from "@/components/PageHeader";
+import DateRangeFilter from "@/components/DateRangeFilter";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Field } from "@/components/ui/field";
 
 export default function Orders() {
   const { isAdmin } = useAuth();
@@ -21,10 +34,13 @@ export default function Orders() {
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [dateField, setDateField] = useState("createdAt");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+  const [deliveryFrom, setDeliveryFrom] = useState("");
+  const [deliveryTo, setDeliveryTo] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [form, setForm] = useState({
     status: "pending",
@@ -35,15 +51,26 @@ export default function Orders() {
   });
   const [saving, setSaving] = useState(false);
   const [pdfLoadingId, setPdfLoadingId] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [q]);
 
   const fetchPage = useCallback(
     async (page = 1) => {
       setLoading(true);
       try {
-        const params = { page, limit: 10, dateField };
+        const params = { page, limit: 10 };
+        if (debouncedQ) params.q = debouncedQ;
         if (status) params.status = status;
-        if (from) params.from = from;
-        if (to) params.to = to;
+        if (createdFrom) params.createdFrom = createdFrom;
+        if (createdTo) params.createdTo = createdTo;
+        if (deliveryFrom) params.deliveryFrom = deliveryFrom;
+        if (deliveryTo) params.deliveryTo = deliveryTo;
         const { data } = await api.get("/orders", { params });
         setRows(data.data);
         setMeta(data.meta);
@@ -53,7 +80,7 @@ export default function Orders() {
         setLoading(false);
       }
     },
-    [status, from, to, dateField],
+    [debouncedQ, status, createdFrom, createdTo, deliveryFrom, deliveryTo],
   );
 
   useEffect(() => {
@@ -106,14 +133,19 @@ export default function Orders() {
     }
   };
 
-  const remove = async (row) => {
-    if (!window.confirm("Delete this order?")) return;
+  const remove = async () => {
+    if (!orderToDelete?._id) return;
+    setDeleting(true);
     try {
-      await api.delete(`/orders/${row._id}`);
+      await api.delete(`/orders/${orderToDelete._id}`);
       toast.success("Deleted");
+      setDeleteModalOpen(false);
+      setOrderToDelete(null);
       fetchPage(meta.page);
     } catch (e) {
       toast.error(formatApiError(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -121,52 +153,56 @@ export default function Orders() {
     {
       key: "customer",
       header: "Customer",
-      render: (o) => o.customerId?.name || "—",
+      cell: ({ row }) => row.original.customerId?.name || "—",
     },
     {
       key: "totalAmount",
       header: "Total",
-      render: (o) => `Rs ${(o.totalAmount ?? 0).toLocaleString()}`,
+      cell: ({ row }) => `Rs ${(row.original.totalAmount ?? 0).toLocaleString()}`,
     },
     {
       key: "status",
       header: "Status",
-      render: (o) => <Badge status={o.status}>{o.status}</Badge>,
+      cell: ({ row }) => <Badge className={'capitalize'} status={row.original.status}>{row.original.status}</Badge>,
     },
     {
       key: "deliveryDate",
       header: "Delivery",
-      render: (o) =>
-        o.deliveryDate ? new Date(o.deliveryDate).toLocaleDateString() : "—",
+      cell: ({ row }) =>
+        row.original.deliveryDate ? new Date(row.original.deliveryDate).toLocaleDateString() : "—",
     },
     {
       key: "actions",
-      header: "",
-      width: "260px",
-      render: (o) => (
-        <div className="flex flex-wrap gap-2">
+      header: "Actions",
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-4">
           <button
             type="button"
-            className="text-sm font-medium text-[var(--sf-accent)] hover:underline"
-            onClick={() => openEdit(o)}
+            className="flex items-center gap-1 text-sm font-medium text-[var(--sf-accent)] hover:underline"
+            onClick={() => openEdit(row.original)}
+            title="Edit"
           >
-            Edit
+            <Pencil size={16} className="inline-block" />
           </button>
           <button
             type="button"
-            className="text-sm font-medium text-zinc-600 hover:underline disabled:opacity-50"
-            disabled={pdfLoadingId === o._id}
-            onClick={() => handlePdf(o._id)}
+            className="flex items-center gap-1 text-sm font-medium text-zinc-600 hover:underline disabled:opacity-50"
+            disabled={pdfLoadingId === row.original._id}
+            onClick={() => handlePdf(row.original._id)}
           >
-            {pdfLoadingId === o._id ? "PDF…" : "PDF"}
+            <FileCodeIcon size={16} className="inline-block" />
           </button>
           {isAdmin && (
             <button
               type="button"
-              className="text-sm font-medium text-red-600 hover:underline"
-              onClick={() => remove(o)}
+              className="flex items-center gap-1 text-sm font-medium text-red-600 hover:underline"
+              onClick={() => {
+                setOrderToDelete(row.original);
+                setDeleteModalOpen(true);
+              }}
+              title="Delete"
             >
-              Delete
+              <Trash2 size={16} className="inline-block" />
             </button>
           )}
         </div>
@@ -176,70 +212,109 @@ export default function Orders() {
 
   return (
     <div className="space-y-6">
-      <DateRangeFilter
-        from={from}
-        to={to}
-        onFromChange={setFrom}
-        onToChange={setTo}
-        onApply={() => fetchPage(1)}
-        onReset={() => {
-          setFrom("");
-          setTo("");
-          setStatus("");
-          setDateField("createdAt");
-        }}
-      >
-        <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All</option>
-          {ORDER_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </Select>
-        <Select
-          label="Date field"
-          value={dateField}
-          onChange={(e) => setDateField(e.target.value)}
-        >
-          <option value="createdAt">Created</option>
-          <option value="deliveryDate">Delivery</option>
-        </Select>
-      </DateRangeFilter>
-
-      <DataTable
-        columns={columns}
-        rows={rows}
-        isLoading={loading}
-        emptyMessage="No orders"
-        rowClassName={(o) =>
-          highlightId && String(o._id) === String(highlightId)
-            ? "bg-amber-50/90 ring-1 ring-inset ring-amber-200/60"
-            : ""
+      <PageHeader
+        title="Orders"
+        buttons={
+          <Link to="/orders/new">
+            <Button>
+              <PlusIcon />
+              Add Order
+            </Button>
+          </Link>
         }
+        description="Track orders, update statuses, and manage deliveries."
       />
+      <div className="rounded-lg border border-zinc-200/80 bg-white p-4 space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="flex-3">
+            <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Search</Label>
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search customer or order..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)} />
+              <InputGroupAddon>
+                <SearchIcon />
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+          <div className="flex-1">
+            <Label className="text-xs font-medium uppercase text-zinc-500">Status</Label>
+            <Select value={status || "__all"} onValueChange={(value) => setStatus(value === "__all" ? "" : value)}>
+              <SelectTrigger className="capitalize">
+                <SelectValue placeholder="Choose Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem className="capitalize" value="__all">All</SelectItem>
+                {ORDER_STATUSES.map((s) => (
+                  <SelectItem className="capitalize" key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {meta.pages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => fetchPage(meta.page - 1)}
-          >
-            Previous
-          </Button>
-          <span className="flex items-center px-2 text-sm text-zinc-600">
-            Page {meta.page} of {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => fetchPage(meta.page + 1)}
-          >
-            Next
-          </Button>
+          <Field className="flex-1">
+            <DateRangeFilter
+              from={createdFrom}
+              to={createdTo}
+              onFromChange={setCreatedFrom}
+              onToChange={setCreatedTo}
+              onApply={() => fetchPage(1)}
+              onReset={() => {
+                setCreatedFrom("");
+                setCreatedTo("");
+              }}
+              label="Created"
+            />
+          </Field>
+          <Field className="flex-1">
+            <DateRangeFilter
+              label="Delivery"
+              from={deliveryFrom}
+              to={deliveryTo}
+              onFromChange={setDeliveryFrom}
+              onToChange={setDeliveryTo}
+              onApply={() => fetchPage(1)}
+              onReset={() => {
+                setDeliveryFrom("");
+                setDeliveryTo("");
+              }}
+            />
+          </Field>
         </div>
-      )}
+        {/* <div className="mt-4 flex flex-wrap gap-2">
+          <Button onClick={() => fetchPage(1)}>
+            Apply
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setFrom("");
+              setTo("");
+              setStatus("");
+              setDateField("createdAt");
+            }}
+          >
+            Reset
+          </Button>
+        </div> */}
+        <DataTable
+          columns={columns}
+          rows={rows}
+          isLoading={loading}
+          emptyMessage="No orders"
+          fixedHeight={false}
+          getRowProps={(row) =>
+            highlightId && String(row.original?._id) === String(highlightId)
+              ? { className: "bg-amber-50/90 ring-1 ring-inset ring-amber-200/60" }
+              : {}
+          }
+        />
+      </div>
+
 
       <Modal
         open={!!editModal}
@@ -259,17 +334,24 @@ export default function Orders() {
             Measurement snapshot is preserved. Remaining balance is recalculated from total and
             advance.
           </p>
-          <Select
-            label="Status"
-            value={form.status}
-            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-zinc-700">Status</Label>
+            <Select
+              value={form.status}
+              onValueChange={(value) => setForm((f) => ({ ...f, status: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ORDER_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Input
               label="Total (Rs)"
@@ -301,6 +383,19 @@ export default function Orders() {
           />
         </div>
       </Modal>
+
+      <DeleteModel
+        title="Delete order"
+        description="This action cannot be undone. Do you want to permanently delete this order?"
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open && !deleting) setOrderToDelete(null);
+        }}
+        onDelete={remove}
+        loading={deleting}
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

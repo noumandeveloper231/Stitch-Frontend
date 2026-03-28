@@ -15,11 +15,12 @@ import {
   Legend,
 } from "recharts";
 import { api } from "../api/client";
-import Spinner from "../components/ui/Spinner";
-import Badge from "../components/ui/Badge";
+import Spinner from "@/components/ui/Spinner";
+import Badge from "@/components/ui/badge";
 import DateRangeFilter from "../components/DateRangeFilter";
 import { formatApiError } from "../utils/errors";
 import { STATUS_CHART_COLORS } from "../config/constants";
+import PageHeader from "@/components/PageHeader";
 
 function StatCard({ title, value, hint }) {
   return (
@@ -54,7 +55,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleReset = async () => {
     setFrom("");
@@ -87,6 +88,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      <PageHeader
+        title="Dashboard"
+        description="Overview of revenue, orders, and top-performing customers."
+      />
       <DateRangeFilter
         from={from}
         to={to}
@@ -94,6 +99,7 @@ export default function Dashboard() {
         onToChange={setTo}
         onApply={() => load()}
         onReset={handleReset}
+        className="mb-4"  
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

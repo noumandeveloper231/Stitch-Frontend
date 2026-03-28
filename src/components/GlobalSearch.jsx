@@ -4,6 +4,8 @@ import { Search } from "lucide-react";
 import { api } from "../api/client";
 import { formatApiError } from "../utils/errors";
 import { toast } from "sonner";
+import Input from "./ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 
 export default function GlobalSearch() {
   const [q, setQ] = useState("");
@@ -70,20 +72,24 @@ export default function GlobalSearch() {
   return (
     <div ref={wrapRef} className="relative w-full min-w-0 max-w-md">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-        <input
-          type="search"
-          placeholder="Search customers & orders…"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          className="w-full rounded-xl border border-zinc-200 bg-zinc-50/80 py-2.5 pl-10 pr-3 text-sm text-zinc-900 shadow-sm transition placeholder:text-zinc-400 focus:border-[var(--sf-accent)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--sf-accent)]/20"
-          aria-autocomplete="list"
-          aria-expanded={open}
-        />
+        <InputGroup>
+          <InputGroupInput
+            type="search"
+            placeholder="Search customers & orders…"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setOpen(true);
+            }}
+            className="w-full"  
+            onFocus={() => setOpen(true)}
+            aria-autocomplete="list"
+            aria-expanded={open}
+          />
+          <InputGroupAddon>
+            <Search className="h-4 w-4 text-zinc-400" />
+          </InputGroupAddon>
+        </InputGroup>
       </div>
       {open && (q.trim() || hasResults) && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border border-zinc-200 bg-white py-2 shadow-lg">

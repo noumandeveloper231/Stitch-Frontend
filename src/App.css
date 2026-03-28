@@ -182,3 +182,14 @@
     border-right-color: var(--border);
   }
 }
+
+/* NProgress bar color */
+#nprogress .bar {
+  background: #4f46e5 !important; /* your color */
+  height: 4px !important;
+}
+
+/* Optional: the glowing peg at the right */
+#nprogress .peg {
+  box-shadow: 0 0 10px #4f46e5, 0 0 5px #4f46e5 !important;
+}

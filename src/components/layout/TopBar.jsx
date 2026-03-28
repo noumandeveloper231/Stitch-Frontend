@@ -1,26 +1,20 @@
-import { Menu, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import Button from "../ui/Button";
+import { Button } from "@/components/ui/button";
 import GlobalSearch from "../GlobalSearch";
 import NotificationBell from "../NotificationBell";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
-export default function TopBar({ onMenuClick, title }) {
+export default function TopBar({ title }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/90 px-3 py-2 backdrop-blur-md sm:px-4 md:py-0 md:h-16 md:items-center">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4 md:py-0">
+    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/95 px-3 py-2 backdrop-blur md:px-4 md:py-3 lg:px-6">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-2 md:gap-3">
-          <button
-            type="button"
-            className="shrink-0 rounded-xl p-2 text-zinc-600 transition hover:bg-zinc-100 md:hidden"
-            onClick={onMenuClick}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          <SidebarTrigger className="h-9 w-9 rounded-lg" />
           <h1 className="min-w-0 truncate text-base font-semibold tracking-tight text-zinc-900 md:text-lg">
             {title}
           </h1>

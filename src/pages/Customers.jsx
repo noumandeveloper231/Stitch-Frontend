@@ -3,11 +3,15 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import DataTable from "../components/ui/DataTable";
-import Button from "../components/ui/Button";
-import Input from "../components/ui/Input";
-import Modal, { ModalActions } from "../components/ui/Modal";
+import { DataTable } from "@/components/DataTable";
+import { Button } from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import Modal, { ModalActions } from "@/components/ui/modal";
 import { formatApiError } from "../utils/errors";
+import { Pencil, SearchIcon, Trash2 } from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { DeleteModel } from "@/components/DeleteModel";
+import PageHeader from "@/components/PageHeader";
 
 const emptyForm = { name: "", phone: "", email: "", address: "", notes: "" };
 
@@ -24,6 +28,9 @@ export default function Customers() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 300);
@@ -110,41 +117,51 @@ export default function Customers() {
     }
   };
 
-  const remove = async (row) => {
-    if (!window.confirm(`Delete ${row.name}?`)) return;
+  const remove = async () => {
+    if (!customerToDelete?._id) return;
+    setDeleting(true);
     try {
-      await api.delete(`/customers/${row._id}`);
+      await api.delete(`/customers/${customerToDelete._id}`);
       toast.success("Deleted");
+      setDeleteModalOpen(false);
+      setCustomerToDelete(null);
       fetchPage(meta.page);
     } catch (e) {
       toast.error(formatApiError(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
   const columns = [
-    { key: "name", header: "Name" },
-    { key: "phone", header: "Phone" },
-    { key: "email", header: "Email" },
+    { accessorKey: "name", header: "Name", meta: { label: "Name" } },
+    { accessorKey: "phone", header: "Phone", meta: { label: "Phone" } },
+    { accessorKey: "email", header: "Email", meta: { label: "Email" } },
     {
-      key: "actions",
-      header: "",
-      width: "180px",
-      render: (row) => (
-        <div className="flex flex-wrap gap-2">
+      id: "actions",
+      header: "Actions",
+      filter: false,
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-4 justify-center">
           <button
             type="button"
-            className="text-sm font-medium text-[var(--sf-accent)] hover:underline"
-            onClick={() => openEdit(row)}
+            className="flex items-center gap-1 text-sm font-medium text-[var(--sf-accent)] hover:underline"
+            onClick={() => openEdit(row.original)}
+            title="Edit"
           >
-            Edit
+            <Pencil size={16} className="inline-block" />
           </button>
           {isAdmin && (
             <button
               type="button"
-              className="text-sm font-medium text-red-600 hover:underline"
-              onClick={() => remove(row)}
+              className="flex items-center gap-1 text-sm font-medium text-red-600 hover:underline"
+              onClick={() => {
+                setCustomerToDelete(row.original);
+                setDeleteModalOpen(true);
+              }}
+              title="Delete"
             >
-              Delete
+              <Trash2 size={16} className="inline-block" />
             </button>
           )}
         </div>
@@ -154,20 +171,35 @@ export default function Customers() {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title="Customers"
+        description="Manage customer profiles, contact details, and notes."
+      />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="w-full max-w-md">
-          <input
-            type="search"
-            placeholder="Search name, phone, email…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm shadow-sm placeholder:text-zinc-400 focus:border-[var(--sf-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--sf-accent)]/20"
-          />
+          <InputGroup>
+            <InputGroupAddon>
+              <SearchIcon size={16} className="inline-block" />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Search name, phone, email…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </InputGroup>
         </div>
         <Button onClick={openCreate}>Add customer</Button>
       </div>
 
-      <DataTable columns={columns} rows={rows} isLoading={loading} emptyMessage="No customers" />
+      <DataTable
+        columns={columns}
+        rows={rows}
+        isLoading={loading}
+        emptyMessage="No customers"
+        // addPagination={false}
+        // enableSelection={false}
+        fixedHeight={false}
+      />
 
       {meta.pages > 1 && (
         <div className="flex justify-center gap-2">
@@ -234,6 +266,23 @@ export default function Customers() {
           />
         </div>
       </Modal>
+
+      <DeleteModel
+        title="Delete customer"
+        description={
+          customerToDelete?.name
+            ? `This will permanently delete ${customerToDelete.name}. This action cannot be undone.`
+            : "This action cannot be undone."
+        }
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open && !deleting) setCustomerToDelete(null);
+        }}
+        onDelete={remove}
+        loading={deleting}
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

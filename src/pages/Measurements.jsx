@@ -1,12 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
-import DataTable from "../components/ui/DataTable";
-import Button from "../components/ui/Button";
-import Select from "../components/ui/Select";
-import Input from "../components/ui/Input";
-import Modal from "../components/ui/Modal";
+import { DataTable } from "@/components/DataTable";
+import { Button } from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import Modal from "@/components/ui/modal";
 import { formatApiError } from "../utils/errors";
+import { DeleteModel } from "@/components/DeleteModel";
+import PageHeader from "@/components/PageHeader";
+import { Label } from "@/components/ui/label";
+import DateRangeFilter from "@/components/DateRangeFilter";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { PlusIcon, SearchIcon } from "lucide-react";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Field } from "@/components/ui/field";
 
 const STEP_1_FIELDS = [
   { key: "kameezLength", label: "Kameez Length" },
@@ -96,16 +111,23 @@ function valuesToForm(values) {
 }
 
 export default function Measurements() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [filterCustomer, setFilterCustomer] = useState("");
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(1);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [measurementToDelete, setMeasurementToDelete] = useState(null);
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -120,12 +142,20 @@ export default function Measurements() {
     loadCustomers();
   }, [loadCustomers]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const fetchPage = useCallback(
     async (page = 1) => {
       setLoading(true);
       try {
         const params = { page, limit: 10 };
+        if (debouncedQ) params.q = debouncedQ;
         if (filterCustomer) params.customerId = filterCustomer;
+        if (createdFrom) params.from = createdFrom;
+        if (createdTo) params.to = createdTo;
         const { data } = await api.get("/measurements", { params });
         setRows(data.data);
         setMeta(data.meta);
@@ -135,19 +165,13 @@ export default function Measurements() {
         setLoading(false);
       }
     },
-    [filterCustomer],
+    [debouncedQ, filterCustomer, createdFrom, createdTo],
   );
 
   useEffect(() => {
     fetchPage(1);
   }, [fetchPage]);
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm({ ...emptyForm, customerId: filterCustomer || "" });
-    setStep(1);
-    setModalOpen(true);
-  };
 
   const openEdit = (row) => {
     setEditing(row);
@@ -157,32 +181,19 @@ export default function Measurements() {
       ...valuesToForm(row.values),
     });
     setStep(1);
-    setModalOpen(true);
   };
 
-  const save = async () => {
-    if (!form.customerId) {
-      toast.error("Select a customer");
-      return;
-    }
+  const saveEdit = async () => {
+    if (!editing?._id) return;
     const values = formToValues(form);
     setSaving(true);
     try {
-      if (editing) {
-        await api.put(`/measurements/${editing._id}`, {
-          label: form.label.trim(),
-          values,
-        });
-        toast.success("Measurement updated");
-      } else {
-        await api.post("/measurements", {
-          customerId: form.customerId,
-          label: form.label.trim(),
-          values,
-        });
-        toast.success("Measurement saved");
-      }
-      setModalOpen(false);
+      await api.put(`/measurements/${editing._id}`, {
+        label: form.label.trim(),
+        values,
+      });
+      toast.success("Measurement updated");
+      setEditing(null);
       fetchPage(meta.page);
     } catch (e) {
       toast.error(formatApiError(e));
@@ -191,14 +202,19 @@ export default function Measurements() {
     }
   };
 
-  const remove = async (row) => {
-    if (!window.confirm("Delete this measurement?")) return;
+  const remove = async () => {
+    if (!measurementToDelete?._id) return;
+    setDeleting(true);
     try {
-      await api.delete(`/measurements/${row._id}`);
+      await api.delete(`/measurements/${measurementToDelete._id}`);
       toast.success("Deleted");
+      setDeleteModalOpen(false);
+      setMeasurementToDelete(null);
       fetchPage(meta.page);
     } catch (e) {
       toast.error(formatApiError(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -206,13 +222,14 @@ export default function Measurements() {
     {
       key: "customer",
       header: "Customer",
-      render: (m) => m.customerId?.name || "—",
+      cell: ({ row }) => row.original.customerId?.name || "—",
     },
     { key: "label", header: "Label" },
     {
       key: "values",
       header: "Summary",
-      render: (m) => {
+      cell: ({ row }) => {
+        const m = row.original;
         const v = m.values || {};
         const parts = ["chest", "kameezLength", "shoulder"]
           .map((k) => (v[k] ? `${k}: ${v[k]}` : null))
@@ -223,28 +240,20 @@ export default function Measurements() {
     {
       key: "created",
       header: "Created",
-      render: (m) => new Date(m.createdAt).toLocaleDateString(),
+      cell: ({ row }) => new Date(row.original.createdAt).toLocaleDateString(),
     },
     {
       key: "actions",
-      header: "",
+      header: "Actions",
       width: "160px",
-      render: (m) => (
+      cell: ({ row }) => (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="text-sm font-medium text-[var(--sf-accent)] hover:underline"
-            onClick={() => openEdit(m)}
-          >
+          <Button type="button" size="sm" variant="ghost" onClick={() => openEdit(row.original)}>
             Edit
-          </button>
-          <button
-            type="button"
-            className="text-sm font-medium text-red-600 hover:underline"
-            onClick={() => remove(m)}
-          >
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => remove(row.original)}>
             Delete
-          </button>
+          </Button>
         </div>
       ),
     },
@@ -257,25 +266,24 @@ export default function Measurements() {
         {group.options.map((option) => {
           const selected = form[group.key] === option;
           return (
-            <button
+            <Button
               key={option}
               type="button"
+              variant="outline"
               onClick={() => setForm((f) => ({ ...f, [group.key]: option }))}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
-                selected
-                  ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]/10 text-zinc-900"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
-              }`}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-normal transition ${selected
+                ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]/10 text-zinc-900"
+                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                }`}
             >
               <span>{option}</span>
               <span
-                className={`h-5 w-5 rounded-full border ${
-                  selected
-                    ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]"
-                    : "border-zinc-400 bg-transparent"
-                }`}
+                className={`h-5 w-5 rounded-full border ${selected
+                  ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]"
+                  : "border-zinc-400 bg-transparent"
+                  }`}
               />
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -284,75 +292,95 @@ export default function Measurements() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <Select
-          label="Filter by customer"
-          value={filterCustomer}
-          onChange={(e) => setFilterCustomer(e.target.value)}
-          className="max-w-md"
-        >
-          <option value="">All customers</option>
-          {customers.map((c) => (
-            <option key={c._id} value={c._id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
-        <Button onClick={openCreate}>Add measurement</Button>
+      <PageHeader
+        title="Measurements"
+        buttons={
+          <Link to="/measurements/new">
+            <Button>
+              <PlusIcon />
+              Add measurement
+            </Button>
+          </Link>
+        }
+        description="Capture and manage customer measurements with multi-step forms."
+      />
+      <div className="rounded-lg border border-zinc-200/80 bg-white p-4 space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex-3">
+            <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Search</Label>
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search customer or measurement..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <InputGroupAddon>
+                <SearchIcon />
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+          <Field className="flex-1">
+            <DateRangeFilter
+              from={createdFrom}
+              to={createdTo}
+              onFromChange={setCreatedFrom}
+              onToChange={setCreatedTo}
+              onApply={() => fetchPage(1)}
+              onReset={() => {
+                setCreatedFrom("");
+                setCreatedTo("");
+              }}
+              dateRangeLabel="Created"
+            />
+          </Field>
+          <div className="flex-1">
+            <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Customer</Label>
+            <Select value={filterCustomer || "__all"} onValueChange={(v) => setFilterCustomer(v === "__all" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All customers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All customers</SelectItem>
+                {customers.map((c) => (
+                  <SelectItem key={c._id} value={c._id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          isLoading={loading}
+          emptyMessage="No measurements"
+          fixedHeight={false}
+        />
       </div>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        isLoading={loading}
-        emptyMessage="No measurements"
-      />
-
-      {meta.pages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={meta.page <= 1}
-            onClick={() => fetchPage(meta.page - 1)}
-          >
-            Previous
-          </Button>
-          <span className="flex items-center px-2 text-sm text-zinc-600">
-            Page {meta.page} of {meta.pages}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={meta.page >= meta.pages}
-            onClick={() => fetchPage(meta.page + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
 
       <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editing ? "Edit measurement" : "New measurement"}
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit measurement"
         footer={
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {[1, 2, 3].map((n) => (
                 <div key={n} className="flex items-center gap-2">
                   <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${
-                      step >= n
-                        ? "bg-[var(--sf-accent)] text-white"
-                        : "bg-zinc-100 text-zinc-500"
-                    }`}
+                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${step >= n
+                      ? "bg-[var(--sf-accent)] text-white"
+                      : "bg-zinc-100 text-zinc-500"
+                      }`}
                   >
                     {n}
                   </div>
                   {n < 3 && (
                     <div
-                      className={`h-1 w-12 rounded-full ${
-                        step > n ? "bg-[var(--sf-accent)]" : "bg-zinc-200"
-                      }`}
+                      className={`h-1 w-12 rounded-full ${step > n ? "bg-[var(--sf-accent)]" : "bg-zinc-200"
+                        }`}
                     />
                   )}
                 </div>
@@ -364,7 +392,7 @@ export default function Measurements() {
                   Back
                 </Button>
               ) : (
-                <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+                <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
                   Cancel
                 </Button>
               )}
@@ -373,7 +401,7 @@ export default function Measurements() {
                   Next
                 </Button>
               ) : (
-                <Button type="button" onClick={save} disabled={saving}>
+                <Button type="button" onClick={saveEdit} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </Button>
               )}
@@ -382,30 +410,17 @@ export default function Measurements() {
         }
       >
         <div className="space-y-4">
-          {!editing && (
-            <Select
-              label="Customer"
-              value={form.customerId}
-              onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}
-            >
-              <option value="">Select…</option>
-              {customers.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          )}
           <Input
             label="Label (optional)"
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
           />
           {step === 1 && (
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto p-2">
               <div className="grid grid-cols-2 gap-3">
                 {STEP_1_FIELDS.map((field) => (
                   <Input
+                    type="number"
                     key={field.key}
                     label={field.label}
                     value={form[field.key]}
@@ -413,11 +428,14 @@ export default function Measurements() {
                   />
                 ))}
               </div>
-              <Input
-                label="Extra notes"
+              <Textarea
+                placeholder="Extra notes"
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               />
+              <Button type="button" variant="secondary" onClick={() => setForm((f) => ({ ...f, notes: "" }))}>
+                Clear
+              </Button>
             </div>
           )}
           {step === 2 && (
@@ -432,6 +450,19 @@ export default function Measurements() {
           )}
         </div>
       </Modal>
+
+      <DeleteModel
+        title="Delete measurement"
+        description="This action cannot be undone. Do you want to permanently delete this measurement?"
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open && !deleting) setMeasurementToDelete(null);
+        }}
+        onDelete={remove}
+        loading={deleting}
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

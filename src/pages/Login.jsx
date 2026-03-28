@@ -3,8 +3,8 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import Input from "../components/ui/Input";
-import Button from "../components/ui/Button";
+import Input from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { formatApiError } from "../utils/errors";
 
 export default function Login() {
