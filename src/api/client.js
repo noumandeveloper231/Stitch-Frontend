@@ -1,4 +1,13 @@
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+/** Ensures absolute URL: values without http(s):// are treated as relative paths on the current origin. */
+function normalizeApiBaseUrl(raw) {
+  const fallback = "http://localhost:5000/api";
+  if (raw == null || String(raw).trim() === "") return fallback;
+  let u = String(raw).trim();
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  return u.replace(/\/+$/, "");
+}
+
+const baseURL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
 import { doneProgress, startProgress } from "@/lib/progress";
 
 const DEFAULT_HEADERS = { "Content-Type": "application/json" };
