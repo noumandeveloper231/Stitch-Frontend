@@ -6,7 +6,9 @@ import Navbar from "./Navbar";
 const titles = {
   "/": "Dashboard",
   "/customers": "Customers",
+  "/calendar": "Calendar",
   "/orders": "Orders",
+  "/orders/kanban": "Order Kanban",
   "/orders/new": "Create order",
   "/measurements": "Measurements",
   "/measurements/new": "Add measurement",

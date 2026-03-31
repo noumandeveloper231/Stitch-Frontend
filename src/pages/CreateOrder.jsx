@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
 import Input from "@/components/ui/input";
-import { ORDER_STATUSES } from "../config/constants";
+import { ORDER_STATUSES, ORDER_PRIORITIES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
 import PageHeader from "@/components/PageHeader";
 import { Label } from "@/components/ui/label";
@@ -61,9 +61,17 @@ export default function CreateOrder() {
   const lastDatePickerInteractionRef = useRef(0);
   const [form, setForm] = useState({
     status: "pending",
-    totalAmount: "",
+    priority: "auto",
+    items: [
+      { name: "Cutting", cost: "" },
+      { name: "Button", cost: "" },
+      { name: "Collar", cost: "" },
+      { name: "Nulki", cost: "" },
+      { name: "Kameez", cost: "" },
+      { name: "Shalwar", cost: "" },
+    ],
+    price: "",
     advance: "",
-    remaining: "",
     deliveryDate: "",
     notes: "",
   });
@@ -71,7 +79,7 @@ export default function CreateOrder() {
   const loadCustomers = useCallback(async () => {
     setLoadingCustomers(true);
     try {
-      const { data } = await api.get("/customers", { params: { limit: 100 } });
+      const { data } = await api.get("/customers", { params: { limit: 1000 } });
       setCustomers(data.data);
     } catch (e) {
       toast.error(formatApiError(e));
@@ -99,10 +107,8 @@ export default function CreateOrder() {
     })();
   }, [customerId]);
 
-  const syncRemaining = (total, adv) => {
-    const t = parseFloat(total) || 0;
-    const a = parseFloat(adv) || 0;
-    return String(Math.max(0, t - a));
+  const calculateTotalCost = (items) => {
+    return items.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
   };
 
   const submit = async (e) => {
@@ -114,22 +120,25 @@ export default function CreateOrder() {
       toast.error("Select a customer");
       return;
     }
-    const totalAmount = parseFloat(form.totalAmount) || 0;
+    const price = parseFloat(form.price) || 0;
     const advance = parseFloat(form.advance) || 0;
-    if (advance > totalAmount) {
-      toast.error("Advance cannot be greater than Total.");
+    if (advance > price) {
+      toast.error("Advance cannot be greater than Price.");
       return;
     }
-    const remaining = Math.max(0, totalAmount - advance);
+
+    const filteredItems = form.items
+      .filter((it) => it.name.trim() && it.cost !== "")
+      .map((it) => ({ name: it.name.trim(), cost: parseFloat(it.cost) || 0 }));
 
     setSubmitting(true);
     try {
       await api.post("/orders", {
         customerId,
         status: form.status,
-        totalAmount,
+        items: filteredItems,
+        price,
         advance,
-        remaining,
         deliveryDate: form.deliveryDate || null,
         notes: form.notes.trim(),
       });
@@ -141,6 +150,34 @@ export default function CreateOrder() {
       setSubmitting(false);
     }
   };
+
+  const addItem = () => {
+    setForm((f) => ({
+      ...f,
+      items: [...f.items, { name: "", cost: "" }],
+    }));
+  };
+
+  const removeItem = (index) => {
+    setForm((f) => ({
+      ...f,
+      items: f.items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateItem = (index, field, value) => {
+    setForm((f) => {
+      const next = [...f.items];
+      next[index] = { ...next[index], [field]: value };
+      return { ...f, items: next };
+    });
+  };
+
+  const totalCost = calculateTotalCost(form.items);
+  const priceVal = parseFloat(form.price) || 0;
+  const advanceVal = parseFloat(form.advance) || 0;
+  const remainingVal = Math.max(0, priceVal - advanceVal);
+  const profitVal = priceVal - totalCost;
 
   const latestEntries = Object.entries(latest?.values || {}).filter(([, value]) => {
     if (value === null || value === undefined) return false;
@@ -158,26 +195,167 @@ export default function CreateOrder() {
         onSubmit={submit}
         className="relative space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
       >
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-zinc-700">Customer</Label>
-          <Select
-            value={customerId || "__none"}
-            onValueChange={(value) => setCustomerId(value === "__none" ? "" : value)}
-            disabled={loadingCustomers}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select customer..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">Select customer...</SelectItem>
-              {customers.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                  {c.phone ? ` · ${c.phone}` : ""}
-                </SelectItem>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-6">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-zinc-700">Customer</Label>
+              <Select
+                value={customerId || "__none"}
+                onValueChange={(value) => setCustomerId(value === "__none" ? "" : value)}
+                disabled={loadingCustomers}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Select customer...</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.name} - {c.phone}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-zinc-700">Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
+                >
+                  <SelectTrigger className="capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORDER_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize">
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-zinc-700">Priority</Label>
+                <Select
+                  value={form.priority}
+                  onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
+                >
+                  <SelectTrigger className="capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORDER_PRIORITIES.filter(p => p !== 'completed').map((p) => (
+                      <SelectItem key={p} value={p} className="capitalize">
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="Customer Price (Rs)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                required
+              />
+              <Input
+                label="Advance Payment (Rs)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.advance}
+                onChange={(e) => setForm((f) => ({ ...f, advance: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Remaining Balance</p>
+                <p className={`text-lg font-bold ${remainingVal > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  Rs {remainingVal.toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Projected Profit</p>
+                <p className={`text-lg font-bold ${profitVal >= 0 ? 'text-zinc-900' : 'text-red-600'}`}>
+                  Rs {profitVal.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <Input
+              label="Delivery Date"
+              type="date"
+              value={form.deliveryDate}
+              onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
+              onFocus={() => {
+                lastDatePickerInteractionRef.current = Date.now();
+              }}
+            />
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-zinc-700">Notes</Label>
+              <textarea
+                className="flex min-h-[80px] w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Additional instructions..."
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-zinc-700">Cost Breakdown</Label>
+              <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+                Add Item
+              </Button>
+            </div>
+            <div className="space-y-3 rounded-xl border border-zinc-100 bg-zinc-50/50 p-4">
+              {form.items.map((item, idx) => (
+                <div key={idx} className="flex gap-3">
+                  <div className="flex-1">
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm"
+                      placeholder="Item name"
+                      value={item.name}
+                      onChange={(e) => updateItem(idx, "name", e.target.value)}
+                    />
+                  </div>
+                  <div className="w-24">
+                    <input
+                      className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm"
+                      type="number"
+                      placeholder="Cost"
+                      value={item.cost}
+                      onChange={(e) => updateItem(idx, "cost", e.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    className="text-zinc-400 hover:text-red-500"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
+              <div className="mt-4 flex items-center justify-between border-t border-zinc-200 pt-3">
+                <span className="text-sm font-medium text-zinc-600">Total Cost:</span>
+                <span className="text-lg font-bold text-zinc-900">Rs {totalCost.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {customerId && (
@@ -213,92 +391,12 @@ export default function CreateOrder() {
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-zinc-700">Initial status</Label>
-          <Select
-            value={form.status}
-            onValueChange={(value) => setForm((f) => ({ ...f, status: value }))}
-          >
-            <SelectTrigger className="capitalize">
-              <SelectValue placeholder="Select status..." />
-            </SelectTrigger>
-            <SelectContent>
-              {ORDER_STATUSES.map((s) => (
-                <SelectItem className="capitalize" key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Input
-            label="Total (Rs)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.totalAmount}
-            onChange={(e) => {
-              const totalAmount = e.target.value;
-              setForm((f) => ({
-                ...f,
-                totalAmount,
-                remaining: syncRemaining(totalAmount, f.advance),
-              }));
-            }}
-          />
-          <Input
-            label="Advance (Rs)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.advance}
-            onChange={(e) => {
-              const advance = e.target.value;
-              setForm((f) => ({
-                ...f,
-                advance,
-                remaining: syncRemaining(f.totalAmount, advance),
-              }));
-            }}
-          />
-          <Input
-            label="Remaining (Rs)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.remaining}
-            readOnly
-            disabled
-          />
-        </div>
-        {parseFloat(form.advance || "0") > parseFloat(form.totalAmount || "0") && (
-          <p className="text-sm text-red-600">Advance cannot be greater than Total.</p>
-        )}
-
-        <Input
-          label="Delivery date"
-          type="date"
-          value={form.deliveryDate}
-          onDatePickerInteraction={() => {
-            lastDatePickerInteractionRef.current = Date.now();
-          }}
-          onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
-        />
-
-        <Input
-          label="Notes"
-          value={form.notes}
-          onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-        />
-
-        <div className="sticky bottom-0 left-0 right-0 flex gap-3 border-t border-zinc-200 bg-white p-4 rounded-b-2xl">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create order"}
-          </Button>
+        <div className="flex justify-end gap-3 pt-4">
           <Button type="button" variant="secondary" onClick={() => navigate("/orders")}>
             Cancel
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Creating…" : "Create Order"}
           </Button>
         </div>
       </form>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronDown, LayoutDashboard, Menu, Ruler, ShoppingBag, Users, X } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronDown, LayoutDashboard, Menu, Ruler, ShoppingBag, Users, X } from "lucide-react";
 import SidebarHeader from "./SidebarHeader";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ const navSections = [
     key: "modules",
     header: "Modules",
     items: [
+      { key: "calendar", to: "/calendar", label: "Calendar", icon: CalendarIcon },
       {
         key: "measurements", to: "/measurements", label: "Measurements", icon: Ruler, subItems: [
           { key: "all-measurements", to: "/measurements", label: "All Measurements", end: true },
@@ -29,6 +30,7 @@ const navSections = [
         icon: ShoppingBag,
         subItems: [
           { key: "all-orders", to: "/orders", label: "All Orders", end: true },
+          { key: "order-kanban", to: "/orders/kanban", label: "Order Kanban" },
           { key: "create-order", to: "/orders/new", label: "Create Order" },
         ],
       },

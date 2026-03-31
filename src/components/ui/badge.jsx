@@ -13,7 +13,7 @@ const badgeVariants = cva(
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+          "border-transparent bg-destructive text-destructive-foreground text-white shadow hover:bg-destructive/80",
         outline: "text-foreground border border-gray-300",
         success: "border-transparent bg-green-50 px-3 py-1 text-xs font-medium text-green-700",
         warning: "border-transparent bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-700",
@@ -43,8 +43,11 @@ function Badge({
         completed: "success",
         delivered: "success",
         cancelled: "danger",
+        paid: "success",
+        partially_paid: "warning",
+        unpaid: "danger",
       }[String(status).toLowerCase()] ?? "outline")
-    : undefined;
+    : "outline";
 
   return (<div className={cn(badgeVariants({ variant: variant ?? statusVariant }), className)} {...props} />);
 }

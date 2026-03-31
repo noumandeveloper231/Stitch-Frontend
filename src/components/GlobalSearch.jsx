@@ -130,7 +130,7 @@ export default function GlobalSearch() {
                   className="flex w-full flex-col items-start rounded-lg px-2 py-2 text-left text-sm hover:bg-zinc-50"
                 >
                   <span className="font-medium text-zinc-900">
-                    {o.customerName || "Order"} · Rs {(o.totalAmount ?? 0).toLocaleString()}
+                    {o.customerName || "Order"} · Rs {(o.price ?? 0).toLocaleString()}
                   </span>
                   <span className="text-xs capitalize text-zinc-500">{o.status}</span>
                 </button>

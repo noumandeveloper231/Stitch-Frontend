@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, Eye, Loader2, CheckCircle2, Pencil, Trash2, FileCodeIcon, PlusIcon } from "lucide-react";
 import { api, downloadOrderInvoicePdf } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { DataTable } from "@/components/DataTable";
@@ -17,17 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ORDER_STATUSES } from "../config/constants";
+import { ORDER_STATUSES, ORDER_PRIORITIES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
-import { Pencil, Trash2, FileCodeIcon, PlusIcon } from "lucide-react";
 import { DeleteModel } from "@/components/DeleteModel";
 import PageHeader from "@/components/PageHeader";
 import DateRangeFilter from "@/components/DateRangeFilter";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Field } from "@/components/ui/field";
 
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export default function Orders() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("orderId") || "";
 
@@ -41,11 +45,11 @@ export default function Orders() {
   const [createdTo, setCreatedTo] = useState("");
   const [deliveryFrom, setDeliveryFrom] = useState("");
   const [deliveryTo, setDeliveryTo] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [form, setForm] = useState({
     status: "pending",
-    totalAmount: "",
-    advance: "",
+    price: "",
     deliveryDate: "",
     notes: "",
   });
@@ -54,6 +58,8 @@ export default function Orders() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [statusSuccessId, setStatusUpdatingSuccessId] = useState(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(q.trim()), 300);
@@ -71,6 +77,7 @@ export default function Orders() {
         if (createdTo) params.createdTo = createdTo;
         if (deliveryFrom) params.deliveryFrom = deliveryFrom;
         if (deliveryTo) params.deliveryTo = deliveryTo;
+        if (priorityFilter) params.priority = priorityFilter;
         const { data } = await api.get("/orders", { params });
         setRows(data.data);
         setMeta(data.meta);
@@ -80,7 +87,7 @@ export default function Orders() {
         setLoading(false);
       }
     },
-    [debouncedQ, status, createdFrom, createdTo, deliveryFrom, deliveryTo],
+    [debouncedQ, status, createdFrom, createdTo, deliveryFrom, deliveryTo, priorityFilter],
   );
 
   useEffect(() => {
@@ -91,8 +98,8 @@ export default function Orders() {
     setEditModal(order);
     setForm({
       status: order.status,
-      totalAmount: String(order.totalAmount ?? ""),
-      advance: String(order.advance ?? ""),
+      priority: order.priority || "auto",
+      price: String(order.price ?? ""),
       deliveryDate: order.deliveryDate
         ? new Date(order.deliveryDate).toISOString().slice(0, 10)
         : "",
@@ -106,8 +113,8 @@ export default function Orders() {
     try {
       await api.put(`/orders/${editModal._id}`, {
         status: form.status,
-        totalAmount: parseFloat(form.totalAmount) || 0,
-        advance: parseFloat(form.advance) || 0,
+        priority: form.priority,
+        price: parseFloat(form.price) || 0,
         deliveryDate: form.deliveryDate || null,
         notes: form.notes.trim(),
       });
@@ -118,6 +125,24 @@ export default function Orders() {
       toast.error(formatApiError(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    const oldStatus = rows.find(r => r._id === orderId)?.status;
+    setStatusUpdatingId(orderId);
+    try {
+      await api.patch(`/orders/${orderId}/status`, { status: newStatus });
+      setRows(prev => prev.map(r => r._id === orderId ? { ...r, status: newStatus } : r));
+      setStatusUpdatingSuccessId(orderId);
+      setTimeout(() => setStatusUpdatingSuccessId(null), 2000);
+      toast.success("Status updated");
+    } catch (e) {
+      toast.error(formatApiError(e));
+      // Revert status on failure
+      setRows(prev => prev.map(r => r._id === orderId ? { ...r, status: oldStatus } : r));
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -151,19 +176,115 @@ export default function Orders() {
 
   const columns = [
     {
-      key: "customer",
-      header: "Customer",
-      cell: ({ row }) => row.original.customerId?.name || "—",
+      key: "orderNumber",
+      header: "Order #",
+      cell: ({ row }) => <span className="font-mono text-xs text-zinc-500">#{row.original._id.slice(-6).toUpperCase()}</span>,
     },
     {
-      key: "totalAmount",
-      header: "Total",
-      cell: ({ row }) => `Rs ${(row.original.totalAmount ?? 0).toLocaleString()}`,
+      key: "customer",
+      header: "Customer",
+      cell: ({ row }) => {
+        const name = row.original.customerId?.name || "—";
+        if (!debouncedQ) return name;
+        const escapedQ = escapeRegex(debouncedQ);
+        const parts = name.split(new RegExp(`(${escapedQ})`, "gi"));
+        return (
+          <span>
+            {parts.map((part, i) =>
+              part.toLowerCase() === debouncedQ.toLowerCase() ? (
+                <mark key={i} className="bg-yellow-200 p-0 rounded-sm">{part}</mark>
+              ) : (
+                part
+              )
+            )}
+          </span>
+        );
+      },
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      cell: ({ row }) => {
+        const priority = row.original.currentPriority || row.original.priority || "auto";
+        return (
+          <Badge 
+            className="capitalize text-[10px]" 
+            variant={priority === 'high' ? 'destructive' : 'secondary'}
+          >
+            {priority}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "price",
+      header: "Price",
+      cell: ({ row }) => `Rs ${(row.original.price ?? 0).toLocaleString()}`,
+    },
+    {
+      key: "remaining",
+      header: "Remaining",
+      cell: ({ row }) => (
+        <span className={row.original.remaining > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+          Rs {(row.original.remaining ?? 0).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: "paymentStatus",
+      header: "Payment Status",
+      cell: ({ row }) => {
+        const status = row.original.paymentStatus || "unpaid";
+        return (
+          <Badge className="capitalize text-[10px]" status={status}>
+            {status.replace("_", " ")}
+          </Badge>
+        );
+      },
     },
     {
       key: "status",
       header: "Status",
-      cell: ({ row }) => <Badge className={'capitalize'} status={row.original.status}>{row.original.status}</Badge>,
+      cell: ({ row }) => {
+        const order = row.original;
+        const isUpdating = statusUpdatingId === order._id;
+        const isSuccess = statusSuccessId === order._id;
+
+        return (
+          <div className="flex items-center gap-2">
+            <Select
+              value={order.status}
+              disabled={isUpdating}
+              onValueChange={(value) => handleStatusChange(order._id, value)}
+            >
+              <SelectTrigger className="h-8 capitalize ">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ORDER_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s} className="capitalize">
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isUpdating && <Loader2 size={14} className="animate-spin text-zinc-400" />}
+            {isSuccess && <CheckCircle2 size={14} className="text-green-500" />}
+          </div>
+        );
+      },
+    },
+    {
+      key: "createdAt",
+      header: "Created At",
+      cell: ({ row }) => (
+        <div className="text-xs text-zinc-500">
+          <p>{new Date(row.original.createdAt).toLocaleDateString()}</p>
+          <p className="text-[10px] opacity-70">
+            {new Date(row.original.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      ),
     },
     {
       key: "deliveryDate",
@@ -175,10 +296,18 @@ export default function Orders() {
       key: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-4">
+        <div className="flex gap-4">
           <button
             type="button"
             className="flex items-center gap-1 text-sm font-medium text-[var(--sf-accent)] hover:underline"
+            onClick={() => navigate(`/orders/${row.original._id}?tab=details`)}
+            title="View Details"
+          >
+            <Eye size={16} className="inline-block" />
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm font-medium text-zinc-600 hover:underline"
             onClick={() => openEdit(row.original)}
             title="Edit"
           >
@@ -255,6 +384,23 @@ export default function Orders() {
             </Select>
           </div>
 
+          <div className="flex-1">
+            <Label className="text-xs font-medium uppercase text-zinc-500">Priority</Label>
+            <Select value={priorityFilter || "__all"} onValueChange={(value) => setPriorityFilter(value === "__all" ? "" : value)}>
+              <SelectTrigger className="capitalize">
+                <SelectValue placeholder="All Priorities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem className="capitalize" value="__all">All Priorities</SelectItem>
+                {ORDER_PRIORITIES.map((p) => (
+                  <SelectItem className="capitalize" key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <Field className="flex-1">
             <DateRangeFilter
               from={createdFrom}
@@ -307,11 +453,18 @@ export default function Orders() {
           isLoading={loading}
           emptyMessage="No orders"
           fixedHeight={false}
-          getRowProps={(row) =>
-            highlightId && String(row.original?._id) === String(highlightId)
-              ? { className: "bg-amber-50/90 ring-1 ring-inset ring-amber-200/60" }
-              : {}
-          }
+          getRowProps={(row) => {
+            const props = {};
+            const priority = row.original.currentPriority || row.original.priority;
+            const isHigh = priority === 'high';
+            
+            if (highlightId && String(row.original?._id) === String(highlightId)) {
+              props.className = "bg-amber-50/90 ring-1 ring-inset ring-amber-200/60";
+            } else if (isHigh) {
+              props.className = "bg-red-50/50 border-red-200 hover:bg-red-50 transition-colors";
+            }
+            return props;
+          }}
         />
       </div>
 
@@ -331,45 +484,55 @@ export default function Orders() {
       >
         <div className="space-y-3">
           <p className="text-xs text-zinc-500">
-            Measurement snapshot is preserved. Remaining balance is recalculated from total and
-            advance.
+            Measurement snapshot is preserved. Remaining balance is recalculated from price and payments.
           </p>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-zinc-700">Status</Label>
-            <Select
-              value={form.status}
-              onValueChange={(value) => setForm((f) => ({ ...f, status: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ORDER_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-zinc-700">Status</Label>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}
+              >
+                <SelectTrigger className="capitalize">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-zinc-700">Priority</Label>
+              <Select
+                value={form.priority}
+                onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
+              >
+                <SelectTrigger className="capitalize">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p} className="capitalize">
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Total (Rs)"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.totalAmount}
-              onChange={(e) => setForm((f) => ({ ...f, totalAmount: e.target.value }))}
-            />
-            <Input
-              label="Advance (Rs)"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.advance}
-              onChange={(e) => setForm((f) => ({ ...f, advance: e.target.value }))}
-            />
-          </div>
+          <Input
+            label="Customer Price (Rs)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.price}
+            onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+          />
           <Input
             label="Delivery date"
             type="date"

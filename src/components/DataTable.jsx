@@ -467,7 +467,7 @@ export function DataTable({
           fixedHeight && "h-[500px]",
         )}
       >
-        <div className={cn(fixedHeight ? "flex-1 overflow-y-auto" : "overflow-y-visible")}>
+        <div className={cn(fixedHeight ? "flex-1 overflow-y-auto  overflow-x-auto" : "overflow-y-visible  overflow-x-auto")}>
           <Table className="relative min-w-full text-black" stickyHeader>
             <TableHeader className="text-black shadow-sm">
               <TableRow className="">

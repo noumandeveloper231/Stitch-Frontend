@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusIcon, SearchIcon, Ruler, Settings, FileText } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Field } from "@/components/ui/field";
 
@@ -363,91 +364,121 @@ export default function Measurements() {
       <Modal
         open={!!editing}
         onClose={() => setEditing(null)}
-        title="Edit measurement"
+        title="Edit Measurement"
         footer={
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="flex items-center gap-2">
-                  <div
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${step >= n
-                      ? "bg-[var(--sf-accent)] text-white"
-                      : "bg-zinc-100 text-zinc-500"
-                      }`}
-                  >
-                    {n}
-                  </div>
-                  {n < 3 && (
-                    <div
-                      className={`h-1 w-12 rounded-full ${step > n ? "bg-[var(--sf-accent)]" : "bg-zinc-200"
-                        }`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              {step > 1 ? (
-                <Button type="button" variant="secondary" onClick={() => setStep((s) => s - 1)}>
-                  Back
-                </Button>
-              ) : (
-                <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
-                  Cancel
-                </Button>
-              )}
-              {step < 3 ? (
-                <Button type="button" onClick={() => setStep((s) => s + 1)}>
-                  Next
-                </Button>
-              ) : (
-                <Button type="button" onClick={saveEdit} disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
-                </Button>
-              )}
-            </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} disabled={saving} loading={saving}>
+              Save Changes
+            </Button>
           </div>
         }
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <Input
-            label="Label (optional)"
+            label="Measurement Label"
+            placeholder="e.g., Summer Suit, Winter Collection"
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
           />
-          {step === 1 && (
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto p-2">
-              <div className="grid grid-cols-2 gap-3">
-                {STEP_1_FIELDS.map((field) => (
+
+          <Tabs defaultValue="dimensions" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="dimensions" className="flex items-center gap-2">
+                <Ruler className="h-4 w-4" /> Dimensions
+              </TabsTrigger>
+              <TabsTrigger value="style" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" /> Style
+              </TabsTrigger>
+              <TabsTrigger value="additional" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Additional
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dimensions">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-1">
+                {STEP_1_FIELDS.map((f) => (
                   <Input
-                    type="number"
-                    key={field.key}
-                    label={field.label}
-                    value={form[field.key]}
-                    onChange={(e) => setForm((f) => ({ ...f, [field.key]: e.target.value }))}
+                    key={f.key}
+                    label={f.label}
+                    value={form[f.key]}
+                    onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   />
                 ))}
               </div>
-              <Textarea
-                placeholder="Extra notes"
-                value={form.notes}
-                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              />
-              <Button type="button" variant="secondary" onClick={() => setForm((f) => ({ ...f, notes: "" }))}>
-                Clear
-              </Button>
-            </div>
-          )}
-          {step === 2 && (
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-              {STEP_2_GROUPS.map(renderOptionGroup)}
-            </div>
-          )}
-          {step === 3 && (
-            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-              {STEP_3_GROUPS.map(renderOptionGroup)}
-            </div>
-          )}
+            </TabsContent>
+
+            <TabsContent value="style">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-1">
+                {STEP_2_GROUPS.map((g) => (
+                  <div key={g.key} className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      {g.title}
+                    </Label>
+                    <Select
+                      value={form[g.key] || "__none"}
+                      onValueChange={(v) => setForm((prev) => ({ ...prev, [g.key]: v === "__none" ? "" : v }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={`Select ${g.title}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none">None</SelectItem>
+                        {g.options.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="additional">
+              <div className="space-y-6 p-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {STEP_3_GROUPS.map((g) => (
+                    <div key={g.key} className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        {g.title}
+                      </Label>
+                      <Select
+                        value={form[g.key] || "__none"}
+                        onValueChange={(v) => setForm((prev) => ({ ...prev, [g.key]: v === "__none" ? "" : v }))}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={`Select ${g.title}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">None</SelectItem>
+                          {g.options.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    Additional Notes
+                  </Label>
+                  <Textarea
+                    placeholder="Enter any special instructions..."
+                    value={form.notes}
+                    onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </Modal>
 

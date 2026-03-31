@@ -232,7 +232,7 @@ export default function Dashboard() {
                   <p className="font-medium text-zinc-900">{o.customerId?.name || "—"}</p>
                   <p className="text-xs text-zinc-500">
                     {new Date(o.createdAt).toLocaleString()} · Rs{" "}
-                    {(o.totalAmount ?? 0).toLocaleString()}
+                    {(o.price ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <Badge status={o.status}>{o.status}</Badge>
