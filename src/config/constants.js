@@ -7,7 +7,6 @@ export const ORDER_STATUSES = [
   "canceled",
 ];
 
-export const ORDER_PRIORITIES = ["low", "medium", "high", "completed", "auto"];
 
 export const COUNTRY_CODES = [
   { code: "+93", iso: "af", name: "Afghanistan", length: 9 },

@@ -13,6 +13,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,7 +25,12 @@ export function AuthProvider({ children }) {
       }
       try {
         const { data } = await api.get("/auth/me");
-        if (!cancelled) setUser(data.data);
+        if (!cancelled) {
+          setUser(data.data);
+          // Check if user still has tempPassword (from backend)
+          // Actually, me route doesn't return tempPassword, but the login route does.
+          // If the user refreshes during force change, they should still be redirected.
+        }
       } catch {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
@@ -42,6 +48,9 @@ export function AuthProvider({ children }) {
     localStorage.setItem("accessToken", payload.accessToken);
     localStorage.setItem("refreshToken", payload.refreshToken);
     setUser(payload.user);
+    if (payload.forcePasswordChange) {
+      setForcePasswordChange(true);
+    }
   }, []);
 
   const logout = useCallback(async () => {
@@ -54,11 +63,33 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     setUser(null);
+    setForcePasswordChange(false);
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, login, logout, isAdmin: user?.role === "admin" }),
-    [user, ready, login, logout],
+    () => {
+      const can = (moduleName, action) => {
+        const role = user?.role;
+        if (!role) return false;
+        if (role?.title === "admin" || role === "admin") return true;
+        const permissions = role?.permissions || {};
+        const modulePerms = permissions?.[moduleName];
+        if (!modulePerms) return false;
+        return Boolean(modulePerms.manage || modulePerms[action]);
+      };
+
+      return {
+      user,
+      ready,
+      login,
+      logout,
+      isAdmin: user?.role?.title === "admin" || user?.role === "admin",
+      forcePasswordChange,
+      setForcePasswordChange,
+      can,
+    };
+    },
+    [user, ready, login, logout, forcePasswordChange],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,8 +1,22 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Calendar as CalendarIcon, ChevronDown, LayoutDashboard, Menu, Ruler, ShoppingBag, Users, X } from "lucide-react";
+import { 
+  Calendar as CalendarIcon, 
+  ChevronDown, 
+  Mail,
+  LayoutDashboard, 
+  Menu, 
+  Ruler, 
+  ShoppingBag, 
+  Users, 
+  X, 
+  Shield, 
+  History, 
+  UserCog 
+} from "lucide-react";
 import SidebarHeader from "./SidebarHeader";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../../context/AuthContext";
 
 const navSections = [
   {
@@ -36,11 +50,34 @@ const navSections = [
       },
     ],
   },
+  {
+    key: "admin",
+    header: "Administration",
+    // adminOnly: true,
+    items: [
+      { 
+        key: "user-management", 
+        label: "User Management", 
+        icon: UserCog,
+        subItems: [
+          { key: "users", to: "/admin/users", label: "All Users" },
+          { key: "roles", to: "/admin/roles", label: "Role Permissions" },
+          { key: "history", to: "/admin/history", label: "Login History" },
+          { key: "email-templates", to: "/admin/email-templates", label: "Email Templates", icon: Mail },
+        ],
+      },
+    ],
+  },
 ];
 
 export default function AppSidebar({ mobileOpen, onClose, onOpen }) {
   const { pathname } = useLocation();
-  const [expanded, setExpanded] = useState(() => ({ orders: pathname.startsWith("/orders") }));
+  const { can } = useAuth();
+  const [expanded, setExpanded] = useState(() => ({ 
+    orders: pathname.startsWith("/orders"),
+    measurements: pathname.startsWith("/measurements"),
+    "user-management": pathname.startsWith("/admin")
+  }));
 
   const asideClass = cn(
     "fixed inset-y-0 left-0 z-40 w-64 border-r border-zinc-200 bg-white transition-transform duration-200 lg:static lg:translate-x-0",
@@ -76,12 +113,14 @@ export default function AppSidebar({ mobileOpen, onClose, onOpen }) {
         </div>
 
         <nav className="px-3 py-4">
-          {navSections.map((section, sectionIndex) => (
-            <div key={section.key} className={sectionIndex > 0 ? "mt-2 pt-4" : ""}>
-              <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                {section.header}
-              </p>
-              <ul className="space-y-1">
+          {navSections
+            .filter((section) => !section.adminOnly || can("Roles", "show"))
+            .map((section, sectionIndex) => (
+              <div key={section.key} className={sectionIndex > 0 ? "mt-2 pt-4" : ""}>
+                <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  {section.header}
+                </p>
+                <ul className="space-y-1">
                 {section.items.map((item) => {
                   const Icon = item.icon;
                   if (!item.subItems) {

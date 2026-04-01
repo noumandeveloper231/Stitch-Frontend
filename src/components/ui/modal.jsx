@@ -26,10 +26,22 @@ export function ModalActions({
   );
 }
 
-export default function Modal({ open, onClose, title, footer, children }) {
+export default function Modal({ open, onClose, title, footer, children, contentClassName }) {
+  const allowTinyMceAuxClick = (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (
+      target.closest(".tox-tinymce-aux") ||
+      target.closest(".moxman-window") ||
+      target.closest(".tam-assetmanager-root")
+    ) {
+      event.preventDefault();
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => (!nextOpen ? onClose?.() : null)}>
-      <DialogContent>
+      <DialogContent className={contentClassName} onInteractOutside={allowTinyMceAuxClick}>
         {title ? (
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>

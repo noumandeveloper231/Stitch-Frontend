@@ -104,7 +104,7 @@ export default function OrderDetails() {
 
   const handleSaveCosts = async () => {
     const filteredItems = costForm
-      .filter((it) => it.name.trim() && it.cost !== "")
+      .filter((it) => it.name.trim() !== "")
       .map((it) => ({ name: it.name.trim(), cost: parseFloat(it.cost) || 0 }));
 
     setSavingCosts(true);
@@ -132,6 +132,22 @@ export default function OrderDetails() {
     const next = [...costForm];
     next[index] = { ...next[index], [field]: value };
     setCostForm(next);
+  };
+
+  const loadDefaultCosts = () => {
+    const defaults = [
+      { name: "Cutting", cost: "" },
+      { name: "Button", cost: "" },
+      { name: "Collar", cost: "" },
+      { name: "Nulki", cost: "" },
+      { name: "Kameez", cost: "" },
+      { name: "Shalwar", cost: "" },
+    ];
+    // Keep existing items if any, but append defaults or just replace?
+    // Usually, users want to quickly populate if empty.
+    if (costForm.length === 0 || window.confirm("This will add default cost items. Continue?")) {
+      setCostForm([...costForm, ...defaults]);
+    }
   };
 
   const handleAddPayment = async (amountToPay) => {
@@ -357,7 +373,19 @@ export default function OrderDetails() {
                 <Receipt className="mr-2 h-4 w-4 text-zinc-400" /> Cost Breakdown
               </CardTitle>
               {!editingCosts ? (
-                <Button variant="outline" size="sm" onClick={() => setEditingCosts(true)}>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setEditingCosts(true);
+                  if (order.items?.length === 0) {
+                    setCostForm([
+                      { name: "Cutting", cost: "" },
+                      { name: "Button", cost: "" },
+                      { name: "Collar", cost: "" },
+                      { name: "Nulki", cost: "" },
+                      { name: "Kameez", cost: "" },
+                      { name: "Shalwar", cost: "" },
+                    ]);
+                  }
+                }}>
                   Edit Costs
                 </Button>
               ) : (
@@ -375,6 +403,13 @@ export default function OrderDetails() {
               )}
             </CardHeader>
             <CardContent>
+              {editingCosts && (
+                <div className="mb-4 flex justify-end">
+                  <Button variant="outline" size="sm" onClick={loadDefaultCosts} className="text-xs">
+                    Load Default Items
+                  </Button>
+                </div>
+              )}
               {!editingCosts ? (
                 <div className="rounded-lg border border-zinc-100 overflow-hidden shadow-sm">
                   <table className="w-full text-sm">

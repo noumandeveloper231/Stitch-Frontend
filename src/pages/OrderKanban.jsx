@@ -94,7 +94,7 @@ export default function OrderKanban() {
       />
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-6 overflow-x-auto pb-6 min-h-[calc(100vh-250px)] scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent px-1 max-h-[80vh]">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 flex-wrap gap-2 pb-6 min-h-[calc(100vh-250px)] px-1">
           {ORDER_STATUSES.map((status) => (
             <Droppable key={status} droppableId={status}>
               {(provided, snapshot) => (
@@ -102,7 +102,7 @@ export default function OrderKanban() {
                   {...provided.droppableProps}
                   ref={provided.innerRef}
                   className={cn(
-                    "flex w-[320px] shrink-0 flex-col rounded-xl bg-zinc-100/80 p-3 border transition-colors duration-300 ease-in-out",
+                    "flex shrink-0 flex-col rounded-xl bg-zinc-100/80 p-3 border transition-colors duration-300 ease-in-out h-[70vh] overflow-y-auto",
                     snapshot.isDraggingOver ? "bg-zinc-200/80 border-[var(--sf-accent)]/30 ring-2 ring-[var(--sf-accent)]/10" : "border-zinc-200/50"
                   )}
                 >
@@ -110,9 +110,6 @@ export default function OrderKanban() {
                     <h3 className="text-[13px] font-bold capitalize text-zinc-900">
                       {status.replace("_", " ")} ({groupedOrders[status]?.length || 0})
                     </h3>
-                    <button className="text-zinc-400 hover:text-zinc-600">
-                      <MoreVertical size={16} />
-                    </button>
                   </div>
 
                   <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1 custom-scrollbar min-h-[100px]">

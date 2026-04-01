@@ -13,6 +13,8 @@ import {
   Pie,
   Cell,
   Legend,
+  BarChart,
+  Bar,
 } from "recharts";
 import { api } from "../api/client";
 import Spinner from "@/components/ui/Spinner";
@@ -102,13 +104,13 @@ export default function Dashboard() {
         className="mb-4"  
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Customers (all time)"
+          title="Total Customers"
           value={data?.totals?.customers ?? "—"}
         />
         <StatCard
-          title="Orders in range"
+          title="Orders in Range"
           value={data?.totals?.ordersInRange ?? "—"}
           hint={
             data?.range
@@ -117,47 +119,48 @@ export default function Dashboard() {
           }
         />
         <StatCard
-          title="Revenue in range"
+          title="Revenue"
           value={`Rs ${(data?.totals?.revenueInRange ?? 0).toLocaleString()}`}
+        />
+        <StatCard
+          title="Net Profit"
+          value={`Rs ${(data?.totals?.profitInRange ?? 0).toLocaleString()}`}
+          hint={`${((data?.totals?.profitInRange / (data?.totals?.revenueInRange || 1)) * 100).toFixed(1)}% margin`}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-          <h2 className="text-sm font-semibold text-zinc-900">Monthly revenue</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">Sum of order totals by calendar month</p>
+          <h2 className="text-sm font-semibold text-zinc-900">Financial Performance</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">Revenue, Expense, and Profit trends</p>
           <div className="mt-4 h-64 w-full min-w-0">
-            {(data?.revenueByMonth || []).length ? (
+            {(data?.financialsByMonth || []).length ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.revenueByMonth} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#71717a" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="#71717a" tickFormatter={(v) => `Rs ${v}`} />
+                <BarChart data={data.financialsByMonth} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#71717a" />
+                  <YAxis tick={{ fontSize: 10 }} stroke="#71717a" tickFormatter={(v) => `Rs ${v}`} />
                   <Tooltip
-                    formatter={(value) => [`Rs ${Number(value).toLocaleString()}`, "Revenue"]}
+                    formatter={(value) => [`Rs ${Number(value).toLocaleString()}`]}
                     contentStyle={{ borderRadius: "8px", border: "1px solid #e4e4e7" }}
                   />
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--sf-accent)"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: "var(--sf-accent)" }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
+                  <Bar dataKey="revenue" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Revenue" />
+                  <Bar dataKey="expense" fill="#f43f5e" radius={[4, 4, 0, 0]} name="Expense" />
+                  <Bar dataKey="profit" fill="#10b981" radius={[4, 4, 0, 0]} name="Profit" />
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-                No revenue data in this range.
+                No financial data in this range.
               </div>
             )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-          <h2 className="text-sm font-semibold text-zinc-900">Orders by status</h2>
-          <p className="mt-0.5 text-xs text-zinc-500">Within selected date range</p>
+          <h2 className="text-sm font-semibold text-zinc-900">Orders by Status</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">Distribution of orders by current stage</p>
           <div className="mt-4 h-64 w-full min-w-0">
             {pieData.length ? (
               <ResponsiveContainer width="100%" height="100%">

@@ -35,7 +35,11 @@ export default function Login() {
       const { data } = await api.post("/auth/login", { email: email.trim(), password });
       login(data.data);
       toast.success("Signed in");
-      navigate(from, { replace: true });
+      if (data.data.forcePasswordChange) {
+        navigate("/force-change-password", { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       toast.error(formatApiError(err));
     } finally {

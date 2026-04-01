@@ -260,37 +260,6 @@ export default function Measurements() {
     },
   ];
 
-  const renderOptionGroup = (group) => (
-    <div key={group.key} className="space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-base font-semibold text-zinc-900">{group.title}</p>
-      <div className="space-y-2">
-        {group.options.map((option) => {
-          const selected = form[group.key] === option;
-          return (
-            <Button
-              key={option}
-              type="button"
-              variant="outline"
-              onClick={() => setForm((f) => ({ ...f, [group.key]: option }))}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm font-normal transition ${selected
-                ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]/10 text-zinc-900"
-                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
-                }`}
-            >
-              <span>{option}</span>
-              <span
-                className={`h-5 w-5 rounded-full border ${selected
-                  ? "border-[var(--sf-accent)] bg-[var(--sf-accent)]"
-                  : "border-zinc-400 bg-transparent"
-                  }`}
-              />
-            </Button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
       <PageHeader

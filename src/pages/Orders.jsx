@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ORDER_STATUSES, ORDER_PRIORITIES } from "../config/constants";
+import { ORDER_STATUSES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
 import { DeleteModel } from "@/components/DeleteModel";
 import PageHeader from "@/components/PageHeader";
@@ -45,7 +45,6 @@ export default function Orders() {
   const [createdTo, setCreatedTo] = useState("");
   const [deliveryFrom, setDeliveryFrom] = useState("");
   const [deliveryTo, setDeliveryTo] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [form, setForm] = useState({
     status: "pending",
@@ -77,7 +76,6 @@ export default function Orders() {
         if (createdTo) params.createdTo = createdTo;
         if (deliveryFrom) params.deliveryFrom = deliveryFrom;
         if (deliveryTo) params.deliveryTo = deliveryTo;
-        if (priorityFilter) params.priority = priorityFilter;
         const { data } = await api.get("/orders", { params });
         setRows(data.data);
         setMeta(data.meta);
@@ -87,7 +85,7 @@ export default function Orders() {
         setLoading(false);
       }
     },
-    [debouncedQ, status, createdFrom, createdTo, deliveryFrom, deliveryTo, priorityFilter],
+    [debouncedQ, status, createdFrom, createdTo, deliveryFrom, deliveryTo],
   );
 
   useEffect(() => {
@@ -98,7 +96,6 @@ export default function Orders() {
     setEditModal(order);
     setForm({
       status: order.status,
-      priority: order.priority || "auto",
       price: String(order.price ?? ""),
       deliveryDate: order.deliveryDate
         ? new Date(order.deliveryDate).toISOString().slice(0, 10)
@@ -107,13 +104,18 @@ export default function Orders() {
     });
   };
 
+  const setDeliveryDays = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setForm({ ...form, deliveryDate: d.toISOString().slice(0, 10) });
+  };
+
   const saveEdit = async () => {
     if (!editModal) return;
     setSaving(true);
     try {
       await api.put(`/orders/${editModal._id}`, {
         status: form.status,
-        priority: form.priority,
         price: parseFloat(form.price) || 0,
         deliveryDate: form.deliveryDate || null,
         notes: form.notes.trim(),
@@ -198,21 +200,6 @@ export default function Orders() {
               )
             )}
           </span>
-        );
-      },
-    },
-    {
-      key: "priority",
-      header: "Priority",
-      cell: ({ row }) => {
-        const priority = row.original.currentPriority || row.original.priority || "auto";
-        return (
-          <Badge 
-            className="capitalize text-[10px]" 
-            variant={priority === 'high' ? 'destructive' : 'secondary'}
-          >
-            {priority}
-          </Badge>
         );
       },
     },
@@ -354,99 +341,69 @@ export default function Orders() {
         description="Track orders, update statuses, and manage deliveries."
       />
       <div className="rounded-lg border border-zinc-200/80 bg-white p-4 space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="flex-3">
-            <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Search</Label>
-            <InputGroup>
-              <InputGroupInput
-                placeholder="Search customer or order..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)} />
-              <InputGroupAddon>
-                <SearchIcon />
-              </InputGroupAddon>
-            </InputGroup>
+        <div className="space-y-4">
+          <div className="flex justify-end gap-4">
+            <Field className="w-64">
+              <DateRangeFilter
+                from={createdFrom}
+                to={createdTo}
+                onFromChange={setCreatedFrom}
+                onToChange={setCreatedTo}
+                onApply={() => fetchPage(1)}
+                onReset={() => {
+                  setCreatedFrom("");
+                  setCreatedTo("");
+                }}
+                label="Created"
+              />
+            </Field>
+            <Field className="w-64">
+              <DateRangeFilter
+                label="Delivery"
+                from={deliveryFrom}
+                to={deliveryTo}
+                onFromChange={setDeliveryFrom}
+                onToChange={setDeliveryTo}
+                onApply={() => fetchPage(1)}
+                onReset={() => {
+                  setDeliveryFrom("");
+                  setDeliveryTo("");
+                }}
+              />
+            </Field>
           </div>
-          <div className="flex-1">
-            <Label className="text-xs font-medium uppercase text-zinc-500">Status</Label>
-            <Select value={status || "__all"} onValueChange={(value) => setStatus(value === "__all" ? "" : value)}>
-              <SelectTrigger className="capitalize">
-                <SelectValue placeholder="Choose Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem className="capitalize" value="__all">All</SelectItem>
-                {ORDER_STATUSES.map((s) => (
-                  <SelectItem className="capitalize" key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-center gap-4">
+            <div className="flex-3">
+              <Label className="text-xs font-medium uppercase tracking-wide text-zinc-500">Search</Label>
+              <InputGroup>
+                <InputGroupInput
+                  placeholder="Search customer or order..."
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)} />
+                <InputGroupAddon>
+                  <SearchIcon />
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
+            <div className="flex-1">
+              <Label className="text-xs font-medium uppercase text-zinc-500">Status</Label>
+              <Select value={status || "__all"} onValueChange={(value) => setStatus(value === "__all" ? "" : value)}>
+                <SelectTrigger className="capitalize">
+                  <SelectValue placeholder="Choose Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem className="capitalize" value="__all">All</SelectItem>
+                  {ORDER_STATUSES.map((s) => (
+                    <SelectItem className="capitalize" key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-
-          <div className="flex-1">
-            <Label className="text-xs font-medium uppercase text-zinc-500">Priority</Label>
-            <Select value={priorityFilter || "__all"} onValueChange={(value) => setPriorityFilter(value === "__all" ? "" : value)}>
-              <SelectTrigger className="capitalize">
-                <SelectValue placeholder="All Priorities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem className="capitalize" value="__all">All Priorities</SelectItem>
-                {ORDER_PRIORITIES.map((p) => (
-                  <SelectItem className="capitalize" key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Field className="flex-1">
-            <DateRangeFilter
-              from={createdFrom}
-              to={createdTo}
-              onFromChange={setCreatedFrom}
-              onToChange={setCreatedTo}
-              onApply={() => fetchPage(1)}
-              onReset={() => {
-                setCreatedFrom("");
-                setCreatedTo("");
-              }}
-              label="Created"
-            />
-          </Field>
-          <Field className="flex-1">
-            <DateRangeFilter
-              label="Delivery"
-              from={deliveryFrom}
-              to={deliveryTo}
-              onFromChange={setDeliveryFrom}
-              onToChange={setDeliveryTo}
-              onApply={() => fetchPage(1)}
-              onReset={() => {
-                setDeliveryFrom("");
-                setDeliveryTo("");
-              }}
-            />
-          </Field>
         </div>
-        {/* <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={() => fetchPage(1)}>
-            Apply
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setFrom("");
-              setTo("");
-              setStatus("");
-              setDateField("createdAt");
-            }}
-          >
-            Reset
-          </Button>
-        </div> */}
+
         <DataTable
           columns={columns}
           rows={rows}
@@ -455,13 +412,9 @@ export default function Orders() {
           fixedHeight={false}
           getRowProps={(row) => {
             const props = {};
-            const priority = row.original.currentPriority || row.original.priority;
-            const isHigh = priority === 'high';
-            
+
             if (highlightId && String(row.original?._id) === String(highlightId)) {
               props.className = "bg-amber-50/90 ring-1 ring-inset ring-amber-200/60";
-            } else if (isHigh) {
-              props.className = "bg-red-50/50 border-red-200 hover:bg-red-50 transition-colors";
             }
             return props;
           }}
@@ -505,25 +458,6 @@ export default function Orders() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-zinc-700">Priority</Label>
-              <Select
-                value={form.priority}
-                onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
-              >
-                <SelectTrigger className="capitalize">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ORDER_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p} className="capitalize">
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <Input
             label="Customer Price (Rs)"
@@ -533,12 +467,28 @@ export default function Orders() {
             value={form.price}
             onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
           />
-          <Input
-            label="Delivery date"
-            type="date"
-            value={form.deliveryDate}
-            onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-zinc-700">Delivery date</Label>
+              <div className="flex gap-1">
+                {[3, 7, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    onClick={() => setDeliveryDays(days)}
+                    className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 transition-colors hover:bg-zinc-200"
+                  >
+                    +{days}d
+                  </button>
+                ))}
+              </div>
+            </div>
+            <Input
+              type="date"
+              value={form.deliveryDate}
+              onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
+            />
+          </div>
           <Input
             label="Notes"
             value={form.notes}

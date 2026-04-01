@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import Spinner from "./ui/Spinner";
 
 export default function ProtectedRoute({ children }) {
-  const { user, ready } = useAuth();
+  const { user, ready, forcePasswordChange } = useAuth();
   const location = useLocation();
 
   if (!ready) {
@@ -16,6 +16,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (forcePasswordChange && location.pathname !== "/force-change-password") {
+    return <Navigate to="/force-change-password" replace />;
   }
 
   return children;

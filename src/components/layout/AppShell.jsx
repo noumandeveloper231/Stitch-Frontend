@@ -12,6 +12,7 @@ const titles = {
   "/orders/new": "Create order",
   "/measurements": "Measurements",
   "/measurements/new": "Add measurement",
+  "/admin/email-templates": "Email Templates",
 };
 
 function titleFromPath(pathname) {

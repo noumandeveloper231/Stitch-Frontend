@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
 import Input from "@/components/ui/input";
-import { ORDER_STATUSES, ORDER_PRIORITIES } from "../config/constants";
+import { ORDER_STATUSES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
 import PageHeader from "@/components/PageHeader";
 import { Label } from "@/components/ui/label";
@@ -61,7 +61,6 @@ export default function CreateOrder() {
   const lastDatePickerInteractionRef = useRef(0);
   const [form, setForm] = useState({
     status: "pending",
-    priority: "auto",
     items: [
       { name: "Cutting", cost: "" },
       { name: "Button", cost: "" },
@@ -72,7 +71,11 @@ export default function CreateOrder() {
     ],
     price: "",
     advance: "",
-    deliveryDate: "",
+    deliveryDate: (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      return d.toISOString().slice(0, 10);
+    })(),
     notes: "",
   });
 
@@ -111,6 +114,12 @@ export default function CreateOrder() {
     return items.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
   };
 
+  const setDeliveryDays = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    setForm({ ...form, deliveryDate: d.toISOString().slice(0, 10) });
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     const justInteractedWithDatePicker =
@@ -128,7 +137,7 @@ export default function CreateOrder() {
     }
 
     const filteredItems = form.items
-      .filter((it) => it.name.trim() && it.cost !== "")
+      .filter((it) => it.name.trim() !== "")
       .map((it) => ({ name: it.name.trim(), cost: parseFloat(it.cost) || 0 }));
 
     setSubmitting(true);
@@ -237,25 +246,6 @@ export default function CreateOrder() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium text-zinc-700">Priority</Label>
-                <Select
-                  value={form.priority}
-                  onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}
-                >
-                  <SelectTrigger className="capitalize">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORDER_PRIORITIES.filter(p => p !== 'completed').map((p) => (
-                      <SelectItem key={p} value={p} className="capitalize">
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -293,15 +283,41 @@ export default function CreateOrder() {
               </div>
             </div>
 
-            <Input
-              label="Delivery Date"
-              type="date"
-              value={form.deliveryDate}
-              onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
-              onFocus={() => {
-                lastDatePickerInteractionRef.current = Date.now();
-              }}
-            />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-zinc-700">Delivery Date</Label>
+                <div className="flex gap-1">
+                  {[3, 7, 30].map((days) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + days);
+                    const dateStr = d.toISOString().slice(0, 10);
+                    const isActive = form.deliveryDate === dateStr;
+                    return (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => setDeliveryDays(days)}
+                        className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                          isActive
+                            ? "bg-zinc-900 text-white"
+                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                        }`}
+                      >
+                        +{days}d
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <Input
+                type="date"
+                value={form.deliveryDate}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryDate: e.target.value }))}
+                onFocus={() => {
+                  lastDatePickerInteractionRef.current = Date.now();
+                }}
+              />
+            </div>
 
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-zinc-700">Notes</Label>

@@ -19,7 +19,9 @@ export default function Navbar({ title }) {
             <NotificationBell />
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-zinc-900">{user?.name}</p>
-              <p className="text-xs capitalize text-zinc-500">{user?.role}</p>
+              <p className="text-xs capitalize text-zinc-500">
+                {user?.role?.title || user?.role}
+              </p>
             </div>
             <Button
               variant="ghost"

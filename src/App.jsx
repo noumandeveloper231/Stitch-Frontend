@@ -14,6 +14,11 @@ import Measurements from "./pages/Measurements";
 import CreateMeasurement from "./pages/CreateMeasurement";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForceChangePassword from "./pages/ForceChangePassword";
+import Users from "./pages/Admin/Users";
+import Roles from "./pages/Admin/Roles";
+import LoginHistory from "./pages/Admin/LoginHistory";
+import EmailTemplates from "./pages/Admin/EmailTemplates";
 import { doneProgress, startProgress } from "./lib/progress";
 
 function RouteProgress() {
@@ -42,6 +47,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/force-change-password" element={
+          <ProtectedRoute>
+            <ForceChangePassword />
+          </ProtectedRoute>
+        } />
         <Route
           element={
             <ProtectedRoute>
@@ -58,6 +68,10 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderDetails />} />
           <Route path="/measurements" element={<Measurements />} />
           <Route path="/measurements/new" element={<CreateMeasurement />} />
+          <Route path="/admin/users" element={<Users />} />
+          <Route path="/admin/roles" element={<Roles />} />
+          <Route path="/admin/history" element={<LoginHistory />} />
+          <Route path="/admin/email-templates" element={<EmailTemplates />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
