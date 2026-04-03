@@ -8,6 +8,7 @@ import { DataTable } from "@/components/DataTable";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { COUNTRY_CODES } from "../../config/constants";
+import { formatPhoneNumber } from "@/lib/utils";
 import {
   UserPlus,
   Pencil,
@@ -205,7 +206,12 @@ export default function Users() {
         </span>
       ),
     },
-    { accessorKey: "phone", header: "Contact", meta: { label: "Contact" } },
+    {
+      accessorKey: "phone",
+      header: "Contact",
+      meta: { label: "Contact" },
+      cell: ({ row }) => formatPhoneNumber(row.original.phone),
+    },
     {
       id: "actions",
       header: "Actions",

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import AppSidebar from "./AppSidebar";
 import Navbar from "./Navbar";
+import Footer from "./Footer";
 
 const titles = {
   "/": "Dashboard",
@@ -10,15 +11,23 @@ const titles = {
   "/orders": "Orders",
   "/orders/kanban": "Order Kanban",
   "/orders/new": "Create order",
+  "/stitching-types": "Stitching Types",
   "/measurements": "Measurements",
-  "/measurements/new": "Add measurement",
+  "/measurements/editor": "Measurement Editor",
+  "/expenses": "Expenses",
+  "/expenses/categories": "Expense Categories",
+  "/expenses/subcategories": "Expense Subcategories",
+  "/contact-diary": "Contact Diary",
   "/admin/email-templates": "Email Templates",
 };
 
 function titleFromPath(pathname) {
   if (titles[pathname]) return titles[pathname];
+  if (pathname.startsWith("/customers")) return "Customers";
+  if (pathname.startsWith("/contact-diary")) return "Contact Diary";
   if (pathname.startsWith("/orders")) return "Orders";
   if (pathname.startsWith("/measurements")) return "Measurements";
+  if (pathname.startsWith("/expenses")) return "Expenses";
   return "Stitch";
 }
 
@@ -40,11 +49,12 @@ export default function AppShell() {
         />
       </aside>
 
-      <div className="min-w-0 flex-1 lg:ml-0">
+      <div className="min-w-0 flex-1 lg:ml-0 flex flex-col">
         <Navbar title={titleFromPath(pathname)} />
-        <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-5 md:px-6 md:py-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-5 md:px-6 md:py-6 lg:px-8 flex-1">
           <Outlet />
         </main>
+        <Footer />
       </div>
     </div>
   );

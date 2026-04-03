@@ -195,14 +195,32 @@ export default function Orders() {
             {parts.map((part, i) =>
               part.toLowerCase() === debouncedQ.toLowerCase() ? (
                 <mark key={i} className="bg-yellow-200 p-0 rounded-sm">{part}</mark>
-              ) : (
-                part
-              )
-            )}
-          </span>
-        );
-      },
+            ) : (
+              part
+            )
+          )}
+        </span>
+      );
     },
+  },
+  {
+    key: "stitching",
+    header: "Stitching",
+    cell: ({ row }) => {
+      const typeName = row.original.stitchingTypeName;
+      if (!typeName) return "Manual pricing";
+      const style = row.original.stitchingStyle === "double" ? "Double stitch" : "Single stitch";
+      const rate = row.original.stitchingRate ?? row.original.price ?? 0;
+      return (
+        <div className="text-xs text-zinc-600">
+          <p className="font-semibold text-zinc-900">{typeName}</p>
+          <p className="text-[11px] text-zinc-500">
+            {style} · Rs {Number(rate).toLocaleString()}
+          </p>
+        </div>
+      );
+    },
+  },
     {
       key: "price",
       header: "Price",

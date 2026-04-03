@@ -15,11 +15,13 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "../../context/AuthContext";
 
 const rootItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/measurements", label: "Measurements", icon: Ruler },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, module: "Dashboard" },
+  { to: "/customers", label: "Customers", icon: Users, module: "Customers" },
+  { to: "/contact-diary", label: "Contact Diary", icon: Users, module: "Contact Diary" },
+  { to: "/measurements", label: "Measurements", icon: Ruler, module: "Measurements" },
 ];
 
 const orderItems = [
@@ -29,8 +31,10 @@ const orderItems = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const { can, isAdmin } = useAuth();
   const ordersOpen = pathname.startsWith("/orders");
   const isOrdersActive = pathname === "/orders" || pathname === "/orders/new";
+  const visibleRootItems = rootItems.filter((item) => isAdmin || can(item.module, "show"));
 
   return (
     <UISidebar
@@ -47,7 +51,7 @@ export default function Sidebar() {
             Main
           </SidebarGroupLabel>
           <SidebarMenu>
-            {rootItems.map(({ to, label, icon: Icon, end }) => (
+            {visibleRootItems.map(({ to, label, icon: Icon, end }) => (
               <SidebarMenuItem key={to}>
                 <SidebarMenuButton
                   asChild

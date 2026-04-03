@@ -23,6 +23,7 @@ import DateRangeFilter from "../components/DateRangeFilter";
 import { formatApiError } from "../utils/errors";
 import { STATUS_CHART_COLORS } from "../config/constants";
 import PageHeader from "@/components/PageHeader";
+import { formatPhoneNumber } from "@/lib/utils";
 
 function StatCard({ title, value, hint }) {
   return (
@@ -266,7 +267,7 @@ export default function Dashboard() {
                     <p className="font-medium text-zinc-900">{c.name}</p>
                     <p className="text-xs text-zinc-500">
                       {c.orderCount} orders
-                      {c.phone ? ` · ${c.phone}` : ""}
+                      {c.phone ? ` · ${formatPhoneNumber(c.phone)}` : ""}
                     </p>
                   </div>
                 </div>

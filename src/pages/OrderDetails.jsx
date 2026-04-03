@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api, downloadOrderInvoicePdf } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -10,9 +10,16 @@ import { Label } from "@/components/ui/label";
 import Input from "@/components/ui/input";
 import Modal, { ModalActions } from "@/components/ui/modal";
 import { formatApiError } from "../utils/errors";
-import PageHeader from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
   ArrowLeft, 
   Download, 
   Plus, 
@@ -27,6 +34,7 @@ import {
   FileText,
   DollarSign
 } from "lucide-react";
+import { formatPhoneNumber } from "@/lib/utils";
 
 const MEASUREMENT_LABELS = {
   kameezLength: "Kameez Length",
@@ -197,6 +205,10 @@ export default function OrderDetails() {
 
   if (!order) return null;
 
+  const stitchingStyleLabel =
+    order.stitchingStyle === "double" ? "Double stitch" : "Single stitch";
+  const stitchingRateValue = Number(order.stitchingRate ?? order.price ?? 0);
+
   const measurementEntries = Object.entries(order.measurementSnapshot?.values || {}).filter(([, value]) => {
     if (value === null || value === undefined) return false;
     if (typeof value === "string") return value.trim() !== "";
@@ -205,23 +217,54 @@ export default function OrderDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="secondary" size="sm" onClick={() => navigate("/orders")}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        <PageHeader 
-          title={`Order #${id.slice(-6).toUpperCase()}`} 
-          description="View order details, cost breakdown, and payment history."
-        />
-        <div className="ml-auto flex gap-2">
-          <Button variant="secondary" onClick={handleDownloadPdf} loading={pdfLoading}>
-            <Download className="mr-2 h-4 w-4" /> Invoice
-          </Button>
-          {order.remaining > 0 && (
-            <Button onClick={() => setPaymentModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Payment
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Button variant="outline" size="sm" onClick={() => navigate("/orders")} aria-label="Go back to orders">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/orders">Orders</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{`Order #${id.slice(-6).toUpperCase()}`}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-[var(--sf-accent)]/10 flex items-center justify-center text-lg font-bold text-[var(--sf-accent)]">
+              {id?.slice(-2).toUpperCase()}
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold">{`Order #${id.slice(-6).toUpperCase()}`}</h1>
+              <div className="flex items-center gap-3 text-sm text-zinc-500">
+                <span>{order.customerId?.name || "Unknown customer"}</span>
+                {order.customerId?.phone && <span>• {formatPhoneNumber(order.customerId.phone)}</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={handleDownloadPdf} loading={pdfLoading}>
+              <Download className="mr-2 h-4 w-4" /> Invoice
             </Button>
-          )}
+            {order.remaining > 0 && (
+              <Button onClick={() => setPaymentModalOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Add Payment
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -301,8 +344,14 @@ export default function OrderDetails() {
                 </div>
                 <div className="flex items-center text-sm text-zinc-600">
                   <Phone className="mr-2 h-4 w-4 text-zinc-400" />
-                  {order.customerId?.phone}
+                  {formatPhoneNumber(order.customerId?.phone)}
                 </div>
+                {order.stitchingTypeName && (
+                  <p className="text-xs text-zinc-500 mt-1">
+                    {order.stitchingTypeName} · {stitchingStyleLabel} · Rs{" "}
+                    {stitchingRateValue.toLocaleString()}
+                  </p>
+                )}
                 {order.customerId?.email && (
                   <p className="text-sm text-zinc-500 ml-6">{order.customerId.email}</p>
                 )}

@@ -4,8 +4,6 @@ import { toast } from "sonner";
 import { api } from "../api/client";
 import { DataTable } from "@/components/DataTable";
 import { Button } from "@/components/ui/button";
-import Input from "@/components/ui/input";
-import Modal from "@/components/ui/modal";
 import { formatApiError } from "../utils/errors";
 import { DeleteModel } from "@/components/DeleteModel";
 import PageHeader from "@/components/PageHeader";
@@ -18,98 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusIcon, SearchIcon, Ruler, Settings, FileText } from "lucide-react";
+import { PlusIcon, SearchIcon } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Field } from "@/components/ui/field";
-
-const STEP_1_FIELDS = [
-  { key: "kameezLength", label: "Kameez Length" },
-  { key: "shoulder", label: "Shoulder" },
-  { key: "chest", label: "Chest" },
-  { key: "loosing", label: "Loosing" },
-  { key: "neck", label: "Neck" },
-  { key: "armhole", label: "Armhole" },
-  { key: "sleeve", label: "Sleeve" },
-  { key: "cuffLength", label: "Cuff Length" },
-  { key: "cuffWidth", label: "Cuff Width" },
-  { key: "sleeveOpening", label: "Sleeve Opening" },
-  { key: "hem", label: "Hem" },
-  { key: "patiWidth", label: "Pati Width" },
-  { key: "patiLength", label: "Pati Length" },
-  { key: "shalwarWaist", label: "Shalwar Waist" },
-  { key: "shalwarWidth", label: "Shalwar Width" },
-  { key: "shalwarLength", label: "Shalwar Length" },
-  { key: "legOpening", label: "Leg Opening" },
-];
-
-const STEP_2_GROUPS = [
-  { key: "daman", title: "Daman", options: ["Round Daman", "Square Daman"] },
-  {
-    key: "cuffStyle",
-    title: "Cuff",
-    options: ["Simple Cuff", "Simple Round Cuff", "Simple Sleeve"],
-  },
-  { key: "silkThread", title: "Silk Thread", options: ["Silk Thread"] },
-  {
-    key: "stitching",
-    title: "Stitching",
-    options: ["Single Stitching", "Double Stitching", "Triple Stitching"],
-  },
-  {
-    key: "buttons",
-    title: "Buttons",
-    options: ["Normal Button", "Fancy Button", "Tich Button"],
-  },
-  {
-    key: "buttonhole",
-    title: "Buttonhole",
-    options: ["Normal Buttonhole", "Threaded Buttonhole"],
-  },
-];
-
-const STEP_3_GROUPS = [
-  { key: "designerSuit", title: "Designer Suit", options: ["Designer Suit"] },
-  { key: "collar", title: "Collar", options: ["Ben", "Half Ben", "Collar", "French Collar"] },
-  { key: "frontPocket", title: "Front Pocket", options: ["Front Pocket"] },
-  { key: "sidePocket", title: "Side Pockets", options: ["Single Side Pocket", "Double Side Pocket"] },
-  { key: "sleevePleat", title: "Sleeve Pleat", options: ["Sleeve Pleat", "No Pleat"] },
-  { key: "hiddenPlacket", title: "Hidden Placket", options: ["Hidden Placket"] },
-  {
-    key: "shalwarType",
-    title: "Shalwar Type",
-    options: ["Normal Shalwar", "Trouser Shalwar", "Balochi Shalwar"],
-  },
-  { key: "nettedLegOpening", title: "Netted Leg Opening", options: ["Netted Leg Opening"] },
-];
-
-const measurementValueKeys = [
-  ...STEP_1_FIELDS.map((f) => f.key),
-  ...STEP_2_GROUPS.map((g) => g.key),
-  ...STEP_3_GROUPS.map((g) => g.key),
-  "notes",
-];
-
-const emptyForm = {
-  customerId: "",
-  label: "",
-  ...Object.fromEntries(measurementValueKeys.map((k) => [k, ""])),
-};
-
-function formToValues(f) {
-  const values = {};
-  for (const key of measurementValueKeys) {
-    const value = typeof f[key] === "string" ? f[key].trim() : f[key];
-    if (value) values[key] = value;
-  }
-  return values;
-}
-
-function valuesToForm(values) {
-  const v = values || {};
-  return Object.fromEntries(measurementValueKeys.map((k) => [k, v[k] ?? ""]));
-}
 
 export default function Measurements() {
   const navigate = useNavigate();
@@ -120,10 +29,6 @@ export default function Measurements() {
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [step, setStep] = useState(1);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [measurementToDelete, setMeasurementToDelete] = useState(null);
@@ -174,35 +79,6 @@ export default function Measurements() {
   }, [fetchPage]);
 
 
-  const openEdit = (row) => {
-    setEditing(row);
-    setForm({
-      customerId: row.customerId?._id || row.customerId || "",
-      label: row.label || "",
-      ...valuesToForm(row.values),
-    });
-    setStep(1);
-  };
-
-  const saveEdit = async () => {
-    if (!editing?._id) return;
-    const values = formToValues(form);
-    setSaving(true);
-    try {
-      await api.put(`/measurements/${editing._id}`, {
-        label: form.label.trim(),
-        values,
-      });
-      toast.success("Measurement updated");
-      setEditing(null);
-      fetchPage(meta.page);
-    } catch (e) {
-      toast.error(formatApiError(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const remove = async () => {
     if (!measurementToDelete?._id) return;
     setDeleting(true);
@@ -217,6 +93,11 @@ export default function Measurements() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const openDelete = (measurement) => {
+    setMeasurementToDelete(measurement);
+    setDeleteModalOpen(true);
   };
 
   const columns = [
@@ -249,10 +130,15 @@ export default function Measurements() {
       width: "160px",
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="ghost" onClick={() => openEdit(row.original)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => navigate(`/measurements/editor?edit=${row.original._id}`)}
+          >
             Edit
           </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => remove(row.original)}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => openDelete(row.original)}>
             Delete
           </Button>
         </div>
@@ -265,7 +151,7 @@ export default function Measurements() {
       <PageHeader
         title="Measurements"
         buttons={
-          <Link to="/measurements/new">
+          <Link to="/measurements/editor">
             <Button>
               <PlusIcon />
               Add measurement
@@ -328,128 +214,6 @@ export default function Measurements() {
           fixedHeight={false}
         />
       </div>
-
-
-      <Modal
-        open={!!editing}
-        onClose={() => setEditing(null)}
-        title="Edit Measurement"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button onClick={saveEdit} disabled={saving} loading={saving}>
-              Save Changes
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-6">
-          <Input
-            label="Measurement Label"
-            placeholder="e.g., Summer Suit, Winter Collection"
-            value={form.label}
-            onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-          />
-
-          <Tabs defaultValue="dimensions" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-              <TabsTrigger value="dimensions" className="flex items-center gap-2">
-                <Ruler className="h-4 w-4" /> Dimensions
-              </TabsTrigger>
-              <TabsTrigger value="style" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" /> Style
-              </TabsTrigger>
-              <TabsTrigger value="additional" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" /> Additional
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="dimensions">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-1">
-                {STEP_1_FIELDS.map((f) => (
-                  <Input
-                    key={f.key}
-                    label={f.label}
-                    value={form[f.key]}
-                    onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                  />
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="style">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-1">
-                {STEP_2_GROUPS.map((g) => (
-                  <div key={g.key} className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                      {g.title}
-                    </Label>
-                    <Select
-                      value={form[g.key] || "__none"}
-                      onValueChange={(v) => setForm((prev) => ({ ...prev, [g.key]: v === "__none" ? "" : v }))}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={`Select ${g.title}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">None</SelectItem>
-                        {g.options.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="additional">
-              <div className="space-y-6 p-1">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {STEP_3_GROUPS.map((g) => (
-                    <div key={g.key} className="space-y-2">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                        {g.title}
-                      </Label>
-                      <Select
-                        value={form[g.key] || "__none"}
-                        onValueChange={(v) => setForm((prev) => ({ ...prev, [g.key]: v === "__none" ? "" : v }))}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={`Select ${g.title}`} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none">None</SelectItem>
-                          {g.options.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                    Additional Notes
-                  </Label>
-                  <Textarea
-                    placeholder="Enter any special instructions..."
-                    value={form.notes}
-                    onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </Modal>
 
       <DeleteModel
         title="Delete measurement"

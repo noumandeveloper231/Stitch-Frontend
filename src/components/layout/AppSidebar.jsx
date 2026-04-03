@@ -7,11 +7,13 @@ import {
   LayoutDashboard, 
   Menu, 
   Ruler, 
+  Scissors,
   ShoppingBag, 
   Users, 
   X, 
   Shield, 
-  History, 
+  History,
+  Wallet,
   UserCog 
 } from "lucide-react";
 import SidebarHeader from "./SidebarHeader";
@@ -23,29 +25,47 @@ const navSections = [
     key: "main",
     header: "Main",
     items: [
-      { key: "dashboard", to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
-      { key: "customers", to: "/customers", label: "Customers", icon: Users },
+      { key: "dashboard", to: "/", label: "Dashboard", icon: LayoutDashboard, end: true, module: "Dashboard" },
+      { key: "customers", to: "/customers", label: "Customers", icon: Users, module: "Customers" },
+      { key: "contact-diary", to: "/contact-diary", label: "Contact Diary", icon: Users, module: "Contact Diary" },
     ],
   },
-  {
-    key: "modules",
-    header: "Modules",
-    items: [
-      { key: "calendar", to: "/calendar", label: "Calendar", icon: CalendarIcon },
+      {
+        key: "modules",
+        header: "Modules",
+        items: [
+          { key: "calendar", to: "/calendar", label: "Calendar", icon: CalendarIcon },
       {
         key: "measurements", to: "/measurements", label: "Measurements", icon: Ruler, subItems: [
           { key: "all-measurements", to: "/measurements", label: "All Measurements", end: true },
-          { key: "create-measurement", to: "/measurements/new", label: "Create Measurement" },
+          { key: "create-measurement", to: "/measurements/editor", label: "Create/Edit Measurement" },
         ]
       },
-      {
-        key: "orders",
-        label: "Orders",
-        icon: ShoppingBag,
+          {
+            key: "orders",
+            label: "Orders",
+            icon: ShoppingBag,
+            subItems: [
+              { key: "all-orders", to: "/orders", label: "All Orders", end: true },
+              { key: "order-kanban", to: "/orders/kanban", label: "Order Kanban" },
+              { key: "create-order", to: "/orders/new", label: "Create Order" },
+            ],
+          },
+          {
+            key: "stitching-types",
+            to: "/stitching-types",
+            label: "Stitching Types",
+            icon: Scissors,
+            module: "Stitching Types",
+          },
+          {
+            key: "expenses",
+        label: "Expense",
+        icon: Wallet,
         subItems: [
-          { key: "all-orders", to: "/orders", label: "All Orders", end: true },
-          { key: "order-kanban", to: "/orders/kanban", label: "Order Kanban" },
-          { key: "create-order", to: "/orders/new", label: "Create Order" },
+          { key: "all-expenses", to: "/expenses", label: "Expenses", end: true },
+          { key: "expense-categories", to: "/expenses/categories", label: "Category" },
+          { key: "expense-subcategories", to: "/expenses/subcategories", label: "Sub Category" },
         ],
       },
     ],
@@ -76,6 +96,7 @@ export default function AppSidebar({ mobileOpen, onClose, onOpen }) {
   const [expanded, setExpanded] = useState(() => ({ 
     orders: pathname.startsWith("/orders"),
     measurements: pathname.startsWith("/measurements"),
+    expenses: pathname.startsWith("/expenses"),
     "user-management": pathname.startsWith("/admin")
   }));
 
@@ -121,7 +142,9 @@ export default function AppSidebar({ mobileOpen, onClose, onOpen }) {
                   {section.header}
                 </p>
                 <ul className="space-y-1">
-                {section.items.map((item) => {
+                {section.items
+                  .filter((item) => !item.module || can(item.module, "show"))
+                  .map((item) => {
                   const Icon = item.icon;
                   if (!item.subItems) {
                     return (

@@ -75,3 +75,5 @@ export const STATUS_CHART_COLORS = {
   ready: "#10b981",
   delivered: "#71717a",
 };
+
+export const STITCHING_STYLES = ["single", "double"];

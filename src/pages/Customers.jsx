@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -8,18 +8,20 @@ import { Button } from "@/components/ui/button";
 import Input from "@/components/ui/input";
 import Modal, { ModalActions } from "@/components/ui/modal";
 import { formatApiError } from "../utils/errors";
-import { Pencil, SearchIcon, Trash2, Globe } from "lucide-react";
+import { Eye, Pencil, SearchIcon, Trash2, Globe } from "lucide-react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { DeleteModel } from "@/components/DeleteModel";
 import PageHeader from "@/components/PageHeader";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatPhoneNumber } from "@/lib/utils";
 import { COUNTRY_CODES } from "../config/constants";
 
 const emptyForm = { name: "", phone: "", email: "", address: "", notes: "", countryCode: "+92" };
 
 export default function Customers() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [meta, setMeta] = useState({ page: 1, pages: 1, total: 0 });
@@ -162,7 +164,12 @@ export default function Customers() {
 
   const columns = [
     { accessorKey: "name", header: "Name", meta: { label: "Name" } },
-    { accessorKey: "phone", header: "Phone", meta: { label: "Phone" } },
+    {
+      accessorKey: "phone",
+      header: "Phone",
+      meta: { label: "Phone" },
+      cell: ({ row }) => formatPhoneNumber(row.original.phone),
+    },
     { accessorKey: "email", header: "Email", meta: { label: "Email" } },
     {
       id: "actions",
@@ -170,6 +177,14 @@ export default function Customers() {
       filter: false,
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-4 justify-center">
+          <button
+            type="button"
+            className="flex items-center gap-1 text-sm font-medium text-zinc-700 hover:underline"
+            onClick={() => navigate(`/customers/${row.original._id}`)}
+            title="View"
+          >
+            <Eye size={16} className="inline-block" />
+          </button>
           <button
             type="button"
             className="flex items-center gap-1 text-sm font-medium text-[var(--sf-accent)] hover:underline"

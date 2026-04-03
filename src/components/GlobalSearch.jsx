@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { api } from "../api/client";
 import { formatApiError } from "../utils/errors";
 import { toast } from "sonner";
-import Input from "./ui/input";
+import { formatPhoneNumber } from "@/lib/utils";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 
 export default function GlobalSearch() {
@@ -112,7 +112,9 @@ export default function GlobalSearch() {
                   className="flex w-full flex-col items-start rounded-lg px-2 py-2 text-left text-sm hover:bg-zinc-50"
                 >
                   <span className="font-medium text-zinc-900">{c.name}</span>
-                  <span className="text-xs text-zinc-500">{c.phone || c.email || ""}</span>
+                  <span className="text-xs text-zinc-500">
+                    {c.phone ? formatPhoneNumber(c.phone) : c.email || ""}
+                  </span>
                 </button>
               ))}
             </div>

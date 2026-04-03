@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
 import Input from "@/components/ui/input";
-import { ORDER_STATUSES } from "../config/constants";
+import { ORDER_STATUSES, STITCHING_STYLES } from "../config/constants";
 import { formatApiError } from "../utils/errors";
 import PageHeader from "@/components/PageHeader";
 import { Label } from "@/components/ui/label";
+import { formatPhoneNumber } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -53,11 +54,16 @@ const MEASUREMENT_LABELS = {
 
 export default function CreateOrder() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState([]);
   const [customerId, setCustomerId] = useState("");
   const [latest, setLatest] = useState(null);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [stitchingTypes, setStitchingTypes] = useState([]);
+  const [loadingStitchingTypes, setLoadingStitchingTypes] = useState(true);
+  const [stitchingTypeId, setStitchingTypeId] = useState("");
+  const [stitchingStyle, setStitchingStyle] = useState(STITCHING_STYLES[0]);
   const lastDatePickerInteractionRef = useRef(0);
   const [form, setForm] = useState({
     status: "pending",
@@ -91,9 +97,38 @@ export default function CreateOrder() {
     }
   }, []);
 
+  const loadStitchingTypes = useCallback(async () => {
+    setLoadingStitchingTypes(true);
+    try {
+      const { data } = await api.get("/stitching-types", {
+        params: { limit: 200, isActive: true },
+      });
+      setStitchingTypes(data.data);
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      setLoadingStitchingTypes(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
+
+  useEffect(() => {
+    loadStitchingTypes();
+  }, [loadStitchingTypes]);
+
+  useEffect(() => {
+    const presetCustomerId =
+      searchParams.get("customerId") ||
+      searchParams.get("customerid") ||
+      searchParams.get("customerID") ||
+      searchParams.get("customerd");
+    if (!presetCustomerId) return;
+    const exists = customers.some((c) => String(c._id) === String(presetCustomerId));
+    if (exists) setCustomerId(String(presetCustomerId));
+  }, [customers, searchParams]);
 
   useEffect(() => {
     if (!customerId) {
@@ -109,6 +144,26 @@ export default function CreateOrder() {
       }
     })();
   }, [customerId]);
+
+  const selectedStitchingType = useMemo(
+    () => stitchingTypes.find((t) => String(t._id) === String(stitchingTypeId)),
+    [stitchingTypeId, stitchingTypes],
+  );
+
+  const computedStylePrice = selectedStitchingType
+    ? stitchingStyle === "double"
+      ? Number(selectedStitchingType.doublePrice || 0)
+      : Number(selectedStitchingType.singlePrice || 0)
+    : null;
+
+  const displayedRate = computedStylePrice ?? (form.price ? Number(form.price) : 0);
+  const styleLabel = stitchingStyle === "double" ? "Double stitch" : "Single stitch";
+  useEffect(() => {
+    if (!selectedStitchingType) return;
+    if (computedStylePrice === null || computedStylePrice === undefined) return;
+    setForm((f) => ({ ...f, price: String(computedStylePrice) }));
+  }, [computedStylePrice, selectedStitchingType]);
+
 
   const calculateTotalCost = (items) => {
     return items.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
@@ -147,10 +202,12 @@ export default function CreateOrder() {
         status: form.status,
         items: filteredItems,
         price,
-        advance,
-        deliveryDate: form.deliveryDate || null,
-        notes: form.notes.trim(),
-      });
+      advance,
+      deliveryDate: form.deliveryDate || null,
+      notes: form.notes.trim(),
+      stitchingTypeId: stitchingTypeId || undefined,
+      stitchingStyle: stitchingTypeId ? stitchingStyle : undefined,
+    });
       toast.success("Order created");
       navigate("/orders");
     } catch (err) {
@@ -219,12 +276,63 @@ export default function CreateOrder() {
                 <SelectContent>
                   <SelectItem value="__none">Select customer...</SelectItem>
                   {customers.map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name} - {c.phone}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                  <SelectItem key={c._id} value={c._id}>
+                      {c.name} - {formatPhoneNumber(c.phone)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-zinc-700">Stitching setup</Label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Select
+                  value={stitchingTypeId || "__none"}
+                  onValueChange={(value) => setStitchingTypeId(value === "__none" ? "" : value)}
+                  disabled={loadingStitchingTypes}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        loadingStitchingTypes
+                          ? "Loading garments…"
+                          : "Choose garment type..."
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Select garment type…</SelectItem>
+                    {stitchingTypes.map((type) => (
+                      <SelectItem key={type._id} value={type._id}>
+                        <div className="space-y-0.5 text-left">
+                          <span className="font-medium text-zinc-900">{type.name}</span>
+                          <span className="text-[11px] text-zinc-500">
+                            Single Rs {Number(type.singlePrice || 0).toLocaleString()} · Double Rs{" "}
+                            {Number(type.doublePrice || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={stitchingStyle} onValueChange={setStitchingStyle}>
+                  <SelectTrigger className="capitalize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STITCHING_STYLES.map((style) => (
+                      <SelectItem key={style} value={style} className="capitalize">
+                        {style === "double" ? "Double stitch" : "Single stitch"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-zinc-500">
+                {selectedStitchingType
+                  ? `Selected rate: Rs ${displayedRate.toLocaleString()} (${selectedStitchingType.name} · ${styleLabel})`
+                  : "Choose a garment to auto-apply the defined Single/Double stitch rate."}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

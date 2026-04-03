@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { api } from "../api/client";
 import { Button } from "@/components/ui/button";
@@ -100,11 +100,15 @@ function formToValues(f) {
 
 export default function CreateMeasurement() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = Boolean(editId);
   const [customers, setCustomers] = useState([]);
   const [loadingCustomers, setLoadingCustomers] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [loadingMeasurement, setLoadingMeasurement] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     setLoadingCustomers(true);
@@ -122,6 +126,49 @@ export default function CreateMeasurement() {
     loadCustomers();
   }, [loadCustomers]);
 
+  const customerIdParam = useMemo(
+    () =>
+      searchParams.get("customerId") ||
+      searchParams.get("customerid") ||
+      searchParams.get("customerID") ||
+      searchParams.get("customerd"),
+    [searchParams],
+  );
+
+  useEffect(() => {
+    const presetCustomerId = customerIdParam;
+    if (!presetCustomerId) return;
+    const exists = customers.some((c) => String(c._id) === String(presetCustomerId));
+    if (!exists) return;
+    setForm((prev) => ({ ...prev, customerId: String(presetCustomerId) }));
+  }, [customerIdParam, customers]);
+
+  useEffect(() => {
+    if (!isEditMode || !editId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingMeasurement(true);
+      try {
+        const { data } = await api.get(`/measurements/${editId}`);
+        if (cancelled) return;
+        const m = data?.data;
+        setForm({
+          customerId: m?.customerId?._id || m?.customerId || "",
+          label: m?.label || "",
+          ...Object.fromEntries(measurementValueKeys.map((k) => [k, m?.values?.[k] ?? ""])),
+        });
+      } catch (e) {
+        toast.error(formatApiError(e));
+        navigate("/measurements");
+      } finally {
+        if (!cancelled) setLoadingMeasurement(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, isEditMode, navigate]);
+
   const save = async () => {
     if (!form.customerId) {
       toast.error("Select a customer");
@@ -130,12 +177,20 @@ export default function CreateMeasurement() {
     const values = formToValues(form);
     setSaving(true);
     try {
-      await api.post("/measurements", {
-        customerId: form.customerId,
-        label: form.label.trim(),
-        values,
-      });
-      toast.success("Measurement saved");
+      if (isEditMode && editId) {
+        await api.put(`/measurements/${editId}`, {
+          label: form.label.trim(),
+          values,
+        });
+        toast.success("Measurement updated");
+      } else {
+        await api.post("/measurements", {
+          customerId: form.customerId,
+          label: form.label.trim(),
+          values,
+        });
+        toast.success("Measurement saved");
+      }
       navigate("/measurements");
     } catch (e) {
       toast.error(formatApiError(e));
@@ -180,8 +235,8 @@ export default function CreateMeasurement() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Add Measurement"
-        description="Capture measurement values in a step-by-step flow."
+        title={isEditMode ? "Edit Measurement" : "Add Measurement"}
+        description={isEditMode ? "Update measurement values in a step-by-step flow." : "Capture measurement values in a step-by-step flow."}
       />
 
       <div className="relative space-y-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -192,7 +247,7 @@ export default function CreateMeasurement() {
             onValueChange={(value) =>
               setForm((f) => ({ ...f, customerId: value === "__none" ? "" : value }))
             }
-            disabled={loadingCustomers}
+            disabled={loadingCustomers || isEditMode}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select customer" />
@@ -279,8 +334,8 @@ export default function CreateMeasurement() {
               Next
             </Button>
           ) : (
-            <Button type="button" onClick={save} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
+            <Button type="button" onClick={save} disabled={saving || loadingMeasurement}>
+              {saving ? "Saving..." : isEditMode ? "Save Changes" : "Save"}
             </Button>
           )}
         </div>

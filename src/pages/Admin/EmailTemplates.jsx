@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Pencil, Save } from "lucide-react";
+import { Mail, Pencil, Save } from "lucide-react";
 import { Editor } from "@tinymce/tinymce-react";
 import { api } from "../../api/client";
 import { formatApiError } from "../../utils/errors";
@@ -10,8 +10,10 @@ import Input from "@/components/ui/input";
 import Modal from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@radix-ui/react-label";
+import { useAuth } from "../../context/AuthContext";
 
 export default function EmailTemplates() {
+  const { user, can } = useAuth();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,6 +22,7 @@ export default function EmailTemplates() {
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [testSendingKey, setTestSendingKey] = useState(null);
   const [activeInsertTarget, setActiveInsertTarget] = useState("subject");
   const [formData, setFormData] = useState({
     templateName: "",
@@ -29,6 +32,7 @@ export default function EmailTemplates() {
   });
   const subjectRef = useRef(null);
   const editorRef = useRef(null);
+  const modalContentRef = useRef(null);
   const tinyMCEKey = import.meta.env.VITE_TINYMCE_API_KEY;
 
   const fetchTemplates = async () => {
@@ -119,10 +123,31 @@ export default function EmailTemplates() {
     insertIntoSubject(token);
   };
 
+  const sendTestEmail = useCallback(
+    async (key) => {
+      if (!user?.email) {
+        toast.error("Your account has no email address. Add one to your user profile before sending a test.");
+        return;
+      }
+      setTestSendingKey(key);
+      try {
+        const { data } = await api.post(`/email-templates/${encodeURIComponent(key)}/test-send`);
+        const sentTo = data?.data?.to ?? user.email;
+        toast.success(`Test email sent to ${sentTo}`);
+      } catch (err) {
+        toast.error(formatApiError(err));
+      } finally {
+        setTestSendingKey(null);
+      }
+    },
+    [user?.email],
+  );
+
   const onPlaceholderClick = (token) => {
-    if (activeInsertTarget === "body" && editorRef.current) {
-      editorRef.current.focus();
-      editorRef.current.insertContent(token);
+    const editor = editorRef.current;
+    if (activeInsertTarget === "body" && editor) {
+      editor.focus();
+      editor.insertContent(editor.dom.encode(token));
       return;
     }
     insertIntoSubject(token);
@@ -160,17 +185,31 @@ export default function EmailTemplates() {
         header: "Actions",
         filter: false,
         cell: ({ row }) => (
-          <button
-            onClick={() => openEdit(row.original)}
-            className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-[var(--sf-accent)] transition-colors"
-            title="Edit template"
-          >
-            <Pencil size={16} />
-          </button>
+          <div className="flex items-center gap-0.5">
+            {can("Email Templates", "manage") ? (
+              <button
+                type="button"
+                onClick={() => sendTestEmail(row.original.key)}
+                disabled={testSendingKey === row.original.key}
+                className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-[var(--sf-accent)] transition-colors disabled:opacity-50"
+                title="Send test email with sample data to your address"
+              >
+                <Mail size={16} />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => openEdit(row.original)}
+              className="rounded-md p-2 text-zinc-500 hover:bg-zinc-100 hover:text-[var(--sf-accent)] transition-colors"
+              title="Edit template"
+            >
+              <Pencil size={16} />
+            </button>
+          </div>
         ),
       },
     ],
-    [],
+    [can, sendTestEmail, testSendingKey],
   );
 
   const typeOptions = useMemo(() => {
@@ -179,6 +218,13 @@ export default function EmailTemplates() {
     );
     return uniqueTypes.sort((a, b) => a.localeCompare(b));
   }, [templates]);
+
+  // TinyMCE React resets the document (and caret) whenever `initialValue` changes; it must not
+  // follow `onEditorChange` updates. Only refresh when opening the modal or switching template.
+  const editorInitialBody = useMemo(
+    () => formData.body,
+    [editingTemplate?.key, showModal],
+  );
 
   const filteredTemplates = useMemo(() => {
     return (templates || []).filter((template) => {
@@ -251,7 +297,12 @@ export default function EmailTemplates() {
       <Modal
         open={showModal}
         onClose={() => setShowModal(false)}
-        title={editingTemplate ? `Edit Template: ${editingTemplate.key}` : "Edit Template"}
+        contentRef={modalContentRef}
+        title={
+          editingTemplate
+            ? `Edit Template: ${editingTemplate.key}`
+            : "Edit Template"
+        }
         contentClassName="w-[95vw] max-w-4xl"
         footer={
           <div className="flex justify-end gap-3">
@@ -271,47 +322,72 @@ export default function EmailTemplates() {
         }
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+
+          {/* Template Name */}
           <Input
             label="Template Name"
             value={formData.templateName}
-            onChange={(e) => setFormData((prev) => ({ ...prev, templateName: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                templateName: e.target.value,
+              }))
+            }
           />
 
-          <Input
-            label="Template Key"
-            value={editingTemplate?.key || ""}
-            disabled
-          />
+          {/* Template Key */}
+          <Input label="Template Key" value={editingTemplate?.key || ""} disabled />
 
+          {/* Enabled Toggle */}
           <div className="flex items-center justify-between rounded-md border border-zinc-200 p-3">
             <div>
               <p className="text-sm font-medium text-zinc-700">Enabled</p>
-              <p className="text-xs text-zinc-500">Disabled templates use fallback defaults.</p>
+              <p className="text-xs text-zinc-500">
+                Disabled templates use fallback defaults.
+              </p>
             </div>
             <Switch
               checked={formData.enabled}
-              onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, enabled: Boolean(checked) }))}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  enabled: Boolean(checked),
+                }))
+              }
             />
           </div>
 
+          {/* Subject */}
           <Input
             label="Subject"
             ref={subjectRef}
             value={formData.subject}
-            onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                subject: e.target.value,
+              }))
+            }
             onFocus={() => setActiveInsertTarget("subject")}
             onDrop={onSubjectDrop}
             onDragOver={(event) => event.preventDefault()}
           />
 
+          {/* Body Editor */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-zinc-700">Body</label>
+
             <Editor
+              key={editingTemplate?.key}
               apiKey={tinyMCEKey}
+              initialValue={editorInitialBody}
               onInit={(_, editor) => {
                 editorRef.current = editor;
+                const root = modalContentRef.current;
+                if (root && typeof editor.options?.set === "function") {
+                  editor.options.set("ui_container", root);
+                }
               }}
-              value={formData.body}
               init={{
                 height: 320,
                 menubar: false,
@@ -321,26 +397,41 @@ export default function EmailTemplates() {
                   "undo redo | bold italic underline | bullist numlist | link table | removeformat code",
                 setup: (editor) => {
                   editor.on("focus", () => setActiveInsertTarget("body"));
+
+                  editor.on("dragover", (event) => {
+                    event.preventDefault();
+                  });
+
                   editor.on("drop", (event) => {
                     const token = event.dataTransfer?.getData("text/plain");
                     if (!token) return;
+
                     event.preventDefault();
-                    editor.insertContent(token);
+                    editor.insertContent(editor.dom.encode(token));
                   });
                 },
               }}
-              onEditorChange={(content) => setFormData((prev) => ({ ...prev, body: content }))}
+              onEditorChange={(content) =>
+                setFormData((prev) => ({ ...prev, body: content }))
+              }
             />
           </div>
+
+          {/* Placeholders */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-zinc-700">Placeholders</Label>
+            <Label className="text-sm font-medium text-zinc-700">
+              Placeholders
+            </Label>
+
             <div className="flex flex-wrap gap-3 rounded-md border border-zinc-200 bg-white p-3">
               {(editingTemplate?.placeholders || []).map((token) => (
                 <button
                   key={token}
                   type="button"
                   draggable
-                  onDragStart={(event) => onDragStartPlaceholder(event, token)}
+                  onDragStart={(event) =>
+                    onDragStartPlaceholder(event, token)
+                  }
                   onClick={() => onPlaceholderClick(token)}
                   className="rounded-full bg-slate-200 px-3 py-1 text-sm font-semibold text-slate-900"
                   title="Drag and drop into Subject or Body"
@@ -349,8 +440,10 @@ export default function EmailTemplates() {
                 </button>
               ))}
             </div>
+
             <p className="text-xs text-zinc-500">
-              Placeholders are fixed by system defaults. Drag a pill into Subject or Body to insert.
+              Placeholders are fixed by system defaults. Drag a pill into
+              Subject or Body to insert.
             </p>
           </div>
         </div>
